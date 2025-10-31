@@ -266,7 +266,10 @@ async def get_current_user(session_token: Optional[str] = Cookie(None), authoriz
     # Check in central database first (super admin)
     session = await central_db.user_sessions.find_one({"session_token": token})
     if session:
-        if session["expires_at"] < datetime.now(timezone.utc):
+        expires_at = session["expires_at"]
+        if isinstance(expires_at, str):
+            expires_at = datetime.fromisoformat(expires_at.replace('Z', '+00:00'))
+        if expires_at < datetime.now(timezone.utc):
             await central_db.user_sessions.delete_one({"session_token": token})
             return None
         user = await central_db.users.find_one({"id": session["user_id"]}, {"_id": 0})
