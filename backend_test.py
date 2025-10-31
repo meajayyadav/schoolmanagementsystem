@@ -232,7 +232,15 @@ class SchoolManagementAPITester:
 
     def test_library_books_endpoint(self):
         """Test library books endpoint"""
+        # Switch to school admin token if available
+        original_token = self.session_token
+        if hasattr(self, 'school_admin_token'):
+            self.session_token = self.school_admin_token
+            
         success, response, status = self.make_request('GET', 'library/books', expected_status=200)
+        
+        # Restore original token
+        self.session_token = original_token
         
         if success and isinstance(response, list):
             self.log_test("Get Library Books", True)
