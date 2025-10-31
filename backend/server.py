@@ -299,9 +299,9 @@ async def require_auth(user: Optional[User] = Depends(get_current_user)) -> User
         raise HTTPException(status_code=401, detail="Not authenticated")
     return user
 
-def get_school_db(school_id: str):
+async def get_school_db(school_id: str):
     # This would be called after verifying school exists
-    school = central_db.schools.find_one({"id": school_id}, {"_id": 0})
+    school = await central_db.schools.find_one({"id": school_id}, {"_id": 0})
     if not school:
         raise HTTPException(status_code=404, detail="School not found")
     return client[school["db_name"]]
