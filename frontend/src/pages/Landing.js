@@ -31,7 +31,7 @@ export default function Landing() {
 
   const handleRegister = async (e) => {
     e.preventDefault();
-    const success = await register(email, password, name, 'school_admin');
+    const success = await register(email, password, name, 'super_admin');
     if (success) {
       navigate('/dashboard');
     }
