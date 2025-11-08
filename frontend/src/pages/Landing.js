@@ -152,7 +152,7 @@ const [showPassword, setShowPassword] = useState(false);
           <Tabs defaultValue="login" className="mt-4">
             <TabsList className="grid w-full grid-cols-2">
               <TabsTrigger value="login" data-testid="login-tab">Login</TabsTrigger>
-              <TabsTrigger value="register" data-testid="register-tab">Register</TabsTrigger>
+              <TabsTrigger disabled value="register" data-testid="register-tab">Register</TabsTrigger>
             </TabsList>
 
             <TabsContent value="login" data-testid="login-form">
@@ -197,7 +197,7 @@ const [showPassword, setShowPassword] = useState(false);
                     <span className="bg-white px-2 text-gray-500">Or continue with</span>
                   </div>
                 </div>
-                <Button
+                <Button disabled
                   data-testid="login-google-btn"
                   type="button"
                   variant="outline"
