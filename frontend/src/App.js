@@ -18,6 +18,9 @@ import Exams from '@/pages/Exams';
 import ReportCards from '@/pages/ReportCards';
 import Staff from '@/pages/Staff';
 import Profile from '@/pages/Profile';
+import UserManagement from './pages/userManagement';
+import Subject from './pages/Subject';
+import SystemCode from './pages/systemCode';
 
 function PrivateRoute({ children }) {
   const { user, loading } = useAuth();
@@ -54,6 +57,9 @@ function App() {
           <Route path="/report-cards" element={<PrivateRoute><ReportCards /></PrivateRoute>} />
           <Route path="/staff" element={<PrivateRoute><Staff /></PrivateRoute>} />
           <Route path="/profile" element={<PrivateRoute><Profile /></PrivateRoute>} />
+          <Route path="/users" element={<PrivateRoute><UserManagement /></PrivateRoute>} />
+          <Route path="/subject" element={<PrivateRoute><Subject /></PrivateRoute>} />
+          <Route path="/systemcode" element={<PrivateRoute><SystemCode /></PrivateRoute>} />
         </Routes>
         <Toaster position="top-right" />
       </BrowserRouter>

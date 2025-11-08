@@ -2,11 +2,12 @@ import { useEffect, useState } from 'react';
 import { useAuth } from '@/contexts/AuthContext';
 import Layout from '@/components/Layout';
 import { dashboardApi } from '@/api';
-import { Users, GraduationCap, BookOpen, School, TrendingUp, Calendar } from 'lucide-react';
+import { Users, GraduationCap, BookOpen, School, TrendingUp, Calendar, LogOut } from 'lucide-react';
 import { Card } from '@/components/ui/card';
+import { Button } from '@/components/ui/button'; // assuming you're using shadcn/ui buttons
 
 export default function Dashboard() {
-  const { user } = useAuth();
+  const { user, logout } = useAuth();
   const [stats, setStats] = useState({});
   const [loading, setLoading] = useState(true);
 
@@ -40,13 +41,28 @@ export default function Dashboard() {
   return (
     <Layout>
       <div className="animate-fade-in" data-testid="dashboard-page">
-        <div className="page-header">
-          <h1 className="text-4xl font-bold text-gray-900">Dashboard</h1>
-          <p className="text-gray-600 mt-2">
-            Welcome back, {user?.name}! Here's what's happening today.
-          </p>
+        {/* HEADER */}
+        <div className="flex items-center justify-between page-header mb-6">
+          <div>
+            <h1 className="text-4xl font-bold text-gray-900">Dashboard</h1>
+            <p className="text-gray-600 mt-2">
+              Welcome back, {user?.name}! Here's what's happening today.
+            </p>
+          </div>
+
+          {/* ✅ Logout Button */}
+          <Button
+            variant="outline"
+            className="flex items-center gap-2 text-red-600 border-red-300 hover:bg-red-50"
+            onClick={logout}
+            data-testid="logout-button"
+          >
+            <LogOut size={18} />
+            Logout
+          </Button>
         </div>
 
+        {/* MAIN STATS */}
         {loading ? (
           <div className="flex justify-center items-center h-64">
             <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600"></div>
@@ -72,7 +88,7 @@ export default function Dashboard() {
           </div>
         )}
 
-        {/* Quick Actions */}
+        {/* QUICK ACTIONS */}
         <div className="mt-8">
           <h2 className="text-2xl font-bold text-gray-900 mb-6">Quick Actions</h2>
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">

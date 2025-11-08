@@ -7,78 +7,70 @@ const AuthContext = createContext();
 const API = `${process.env.REACT_APP_BACKEND_URL}/api`;
 
 export function AuthProvider({ children }) {
-  const [user, setUser] = useState(null);
+  const [user, setUser] = useState(() => {
+    // ✅ Load user from localStorage if available
+    const saved = localStorage.getItem('user');
+    return saved ? JSON.parse(saved) : null;
+  });
+
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
     checkAuth();
-    
-    // Check for session_id in URL hash
-    const hash = window.location.hash;
-    if (hash.includes('session_id=')) {
-      const sessionId = hash.split('session_id=')[1].split('&')[0];
-      handleGoogleAuth(sessionId);
-      window.location.hash = ''; // Clean URL
-    }
+
   }, []);
+  
+
+  // 🔄 Keep localStorage in sync when user changes
+  useEffect(() => {
+    if (user) localStorage.setItem('user', JSON.stringify(user));
+    else localStorage.removeItem('user');
+  }, [user]);
 
   const checkAuth = async () => {
     try {
-      const response = await axios.get(`${API}/auth/me`, {
-        withCredentials: true
-      });
-      setUser(response.data);
-    } catch (error) {
+      const res = await axios.get(`${API}/auth/me`, { withCredentials: true });
+      if (res.data) {
+        setUser(res.data);
+        localStorage.setItem('user', JSON.stringify(res.data));
+      } else {
+        setUser(null);
+        localStorage.removeItem('user');
+      }
+    } catch {
       setUser(null);
+      localStorage.removeItem('user');
     } finally {
-      setLoading(false);
-    }
-  };
-
-  const handleGoogleAuth = async (sessionId) => {
-    try {
-      setLoading(true);
-      const schoolId = localStorage.getItem('selectedSchoolId');
-      const response = await axios.post(`${API}/auth/google`, 
-        { session_id: sessionId, school_id: schoolId },
-        { withCredentials: true }
-      );
-      setUser(response.data.user);
-      localStorage.removeItem('selectedSchoolId');
-      toast.success('Logged in successfully!');
-      window.location.href = '/dashboard';
-    } catch (error) {
-      toast.error('Authentication failed');
       setLoading(false);
     }
   };
 
   const login = async (email, password) => {
     try {
-      const response = await axios.post(`${API}/auth/login`, 
-        { email, password },
-        { withCredentials: true }
-      );
-      setUser(response.data.user);
-      toast.success('Logged in successfully!');
+      const res = await axios.post(`${API}/auth/login`, { email, password }, { withCredentials: true });
+      setUser(res.data.user);
+      localStorage.setItem('user', JSON.stringify(res.data.user));
+      toast.success('Login successful');
       return true;
-    } catch (error) {
-      toast.error(error.response?.data?.detail || 'Login failed');
+    } catch (err) {
+      toast.error(err.response?.data?.detail || 'Login failed');
       return false;
     }
   };
 
   const register = async (email, password, name, role, schoolId = null) => {
     try {
-      const response = await axios.post(`${API}/auth/register`, 
+      const res = await axios.post(
+        `${API}/auth/register`,
         { email, password, name, role, school_id: schoolId },
         { withCredentials: true }
       );
-      setUser(response.data.user);
+      setUser(res.data.user);
+      localStorage.setItem('user', JSON.stringify(res.data.user));
       toast.success('Registered successfully!');
       return true;
-    } catch (error) {
-      toast.error(error.response?.data?.detail || 'Registration failed');
+    } catch (err) {
+      toast.error(err.response?.data?.detail || 'Registration failed');
       return false;
     }
   };
@@ -87,23 +79,32 @@ export function AuthProvider({ children }) {
     try {
       await axios.post(`${API}/auth/logout`, {}, { withCredentials: true });
       setUser(null);
-      toast.success('Logged out successfully');
+      localStorage.removeItem('user');
+      toast.success('Logged out');
       window.location.href = '/';
-    } catch (error) {
+    } catch {
       toast.error('Logout failed');
     }
   };
 
   const googleLogin = (schoolId = null) => {
-    if (schoolId) {
-      localStorage.setItem('selectedSchoolId', schoolId);
-    }
+    if (schoolId) localStorage.setItem('selectedSchoolId', schoolId);
     const redirectUrl = `${window.location.origin}/dashboard`;
     window.location.href = `https://auth.emergentagent.com/?redirect=${encodeURIComponent(redirectUrl)}`;
   };
 
   return (
-    <AuthContext.Provider value={{ user, loading, login, register, logout, googleLogin }}>
+    <AuthContext.Provider
+      value={{
+        user,
+        setUser, // ✅ expose this so Profile.js can update user info
+        loading,
+        login,
+        register,
+        logout,
+        googleLogin,
+      }}
+    >
       {children}
     </AuthContext.Provider>
   );

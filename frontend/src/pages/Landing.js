@@ -7,6 +7,7 @@ import { Input } from '@/components/ui/input';
 import { Card } from '@/components/ui/card';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
+import { Eye, EyeOff } from "lucide-react";
 
 export default function Landing() {
   const { user, login, register, googleLogin } = useAuth();
@@ -15,7 +16,7 @@ export default function Landing() {
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [name, setName] = useState('');
-
+const [showPassword, setShowPassword] = useState(false);
   if (user) {
     navigate('/dashboard');
     return null;
@@ -166,16 +167,25 @@ export default function Landing() {
                     required
                   />
                 </div>
-                <div>
-                  <Input
-                    data-testid="login-password-input"
-                    type="password"
-                    placeholder="Password"
-                    value={password}
-                    onChange={(e) => setPassword(e.target.value)}
-                    required
-                  />
-                </div>
+                <div className="relative">
+  <Input
+    data-testid="login-password-input"
+    type={showPassword ? "text" : "password"}
+    placeholder="Password"
+    value={password}
+    onChange={(e) => setPassword(e.target.value)}
+    required
+    className="pr-10"
+  />
+  <button
+    type="button"
+    onClick={() => setShowPassword(!showPassword)}
+    className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-500 hover:text-gray-700"
+    aria-label={showPassword ? "Hide password" : "Show password"}
+  >
+    {showPassword ? <EyeOff size={18} /> : <Eye size={18} />}
+  </button>
+</div>
                 <Button data-testid="login-submit-btn" type="submit" className="w-full">
                   Login
                 </Button>
