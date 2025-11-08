@@ -51,7 +51,7 @@ export default function Dashboard() {
           </div>
 
           {/* ✅ Logout Button */}
-          <Button
+          {/* <Button
             variant="outline"
             className="flex items-center gap-2 text-red-600 border-red-300 hover:bg-red-50"
             onClick={logout}
@@ -59,7 +59,7 @@ export default function Dashboard() {
           >
             <LogOut size={18} />
             Logout
-          </Button>
+          </Button> */}
         </div>
 
         {/* MAIN STATS */}
