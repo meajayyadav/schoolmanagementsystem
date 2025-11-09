@@ -1,54 +1,86 @@
-import { useEffect, useState } from 'react';
-import Layout from '@/components/Layout';
-import { Button } from '@/components/ui/button';
-import { Input } from '@/components/ui/input';
+import { useEffect, useState } from "react";
+import Layout from "@/components/Layout";
+import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
 import {
   Dialog,
   DialogContent,
   DialogHeader,
   DialogTitle,
-} from '@/components/ui/dialog';
-import { Plus, Pencil, Trash2, Search, ListChecks } from 'lucide-react';
-import { toast } from 'sonner';
-import { systemCodesApi } from '@/api'; // 🔹 create matching API wrapper
-import PaginationControl, { Pagination } from '@/components/ui/pagination'; // 🔹 your reusable pagination component
+} from "@/components/ui/dialog";
+import { Plus, Pencil, Trash2, Search, ListChecks } from "lucide-react";
+import { toast } from "sonner";
+import { systemCodesApi, schoolsApi } from "@/api";
+import { Pagination } from "@/components/ui/pagination";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
+import { useAuth } from "@/contexts/AuthContext";
 
 export default function SystemCodes() {
+  const { user } = useAuth();
   const [systemCodes, setSystemCodes] = useState([]);
+  const [schools, setSchools] = useState([]);
+  const [selectedSchool, setSelectedSchool] = useState("");
   const [loading, setLoading] = useState(false);
-  const [search, setSearch] = useState('');
+  const [search, setSearch] = useState("");
   const [showDialog, setShowDialog] = useState(false);
   const [editing, setEditing] = useState(null);
   const [form, setForm] = useState({
-  system_code_id: '',
-  description: '',
-  items: [],
-});
+    school_id: "",
+    code: "",
+    description: "",
+    items: [],
+  });
 
-  // pagination filters
   const [filters, setFilters] = useState({ page: 1, limit: 10, total: 0 });
 
+  // 🔹 Load schools for Super Admin
   useEffect(() => {
-    loadData();
-  }, [filters.page, filters.limit, search]);
+    if (user?.role === "super_admin") loadSchools();
+  }, []);
 
-  const loadData = async () => {
+  // 🔹 Load system codes for selected school
+  useEffect(() => {
+    if (user?.role === "super_admin" && selectedSchool) {
+      loadSystemCodes(selectedSchool);
+    } else if (user?.role !== "super_admin") {
+      loadSystemCodes();
+    }
+  }, [filters.page, filters.limit, search, selectedSchool]);
+
+  const loadSchools = async () => {
     try {
-      setLoading(true);
-      const offset = (filters.page - 1) * filters.limit;
-      const res = await systemCodesApi.getAll({
-  limit: filters.limit,
-  offset,
-  search,
-});
-
-// ✅ directly use `res.data.items` instead of res.data.data
-setSystemCodes(res.data.items || []);
-setFilters((f) => ({ ...f, total: res.data.total || 0 }));
-
+      const res = await schoolsApi.getAll();
+      setSchools(res.data || []);
     } catch (err) {
       console.error(err);
-      toast.error('Failed to load system codes');
+      toast.error("Failed to load schools");
+    }
+  };
+
+  const loadSystemCodes = async (schoolId = null) => {
+    try {
+      setLoading(true);
+      const params = {
+        limit: filters.limit,
+        page: filters.page,
+        search,
+      };
+      if (schoolId) params.school_id = schoolId;
+
+      const res = await systemCodesApi.getAll(params);
+      setSystemCodes(res.data.items || res.data || []);
+      setFilters((f) => ({
+        ...f,
+        total: res.data.total || (res.data.items?.length || 0),
+      }));
+    } catch (err) {
+      toast.error("Failed to load system codes");
     } finally {
       setLoading(false);
     }
@@ -57,10 +89,21 @@ setFilters((f) => ({ ...f, total: res.data.total || 0 }));
   const openDialog = (code = null) => {
     if (code) {
       setEditing(code);
-      setForm({ ...code });
+      setForm({
+        id: code.id,
+        school_id: code.school_id || selectedSchool,
+        code: code.code,
+        description: code.description,
+        items: code.items || [],
+      });
     } else {
       setEditing(null);
-      setForm({ system_code_id: '', description: '', items: [] });
+      setForm({
+        school_id: selectedSchool || "",
+        code: "",
+        description: "",
+        items: [],
+      });
     }
     setShowDialog(true);
   };
@@ -68,7 +111,7 @@ setFilters((f) => ({ ...f, total: res.data.total || 0 }));
   const handleAddLineItem = () => {
     setForm((f) => ({
       ...f,
-      items: [...f.items, { code: '', label: '', is_active: true }],
+      items: [...f.items, { code: "", label: "", is_active: true }],
     }));
   };
 
@@ -85,50 +128,59 @@ setFilters((f) => ({ ...f, total: res.data.total || 0 }));
     }));
   };
 
+  // 🔹 SAVE (create or update)
   const handleSave = async () => {
     try {
-      if (!form.system_code_id || !form.description) {
-        toast.error('System Code ID and Description are required');
+      if (!form.code || !form.description) {
+        toast.error("System Code ID and Description are required");
+        return;
+      }
+
+      if (user.role === "super_admin" && !form.school_id) {
+        toast.error("Please select a school to create system code");
         return;
       }
 
       if (editing) {
-        await systemCodesApi.update(editing.id, form);
-        toast.success('System code updated');
+        await systemCodesApi.update(form.id, form);
+        toast.success("System code updated successfully");
       } else {
         await systemCodesApi.create(form);
-        toast.success('System code created');
+        toast.success("System code created successfully");
       }
+
       setShowDialog(false);
-      loadData();
+      loadSystemCodes(user.role === "super_admin" ? form.school_id : null);
     } catch (err) {
       console.error(err);
-      toast.error('Save failed');
+      toast.error(err.response?.data?.detail || "Failed to save system code");
     }
   };
 
+  // 🔹 DELETE
   const handleDelete = async (id) => {
-    if (!confirm('Are you sure you want to delete this system code?')) return;
+    if (!confirm("Are you sure you want to delete this system code?")) return;
     try {
-      await systemCodesApi.delete(id);
-      toast.success('Deleted successfully');
-      loadData();
+      const schoolId = user.role === "super_admin" ? selectedSchool : user.school_id;
+      await systemCodesApi.delete(id, schoolId);
+      toast.success("Deleted successfully");
+      loadSystemCodes(schoolId);
     } catch (err) {
-      console.error(err);
-      toast.error('Delete failed');
+      toast.error(err.response?.data?.detail || "Failed to delete system code");
     }
   };
 
   return (
     <Layout>
-      <div className="animate-fade-in" data-testid="system-code-page">
-        <div className="flex justify-between items-center mb-6">
+      <div className="space-y-6 animate-fade-in">
+        {/* Header */}
+        <div className="flex justify-between items-center">
           <div>
-            <h1 className="text-3xl font-bold text-gray-900 flex items-center gap-2">
-              <ListChecks className="w-8 h-8 text-primary" /> System Codes
+            <h1 className="text-3xl font-semibold text-gray-900 flex items-center gap-2">
+              <ListChecks className="text-primary" /> System Codes
             </h1>
-            <p className="text-gray-600 mt-1">
-              Manage reusable code sets (fee status, document type, etc.)
+            <p className="text-gray-600">
+              Manage reusable code sets (classes, fee statuses, etc.)
             </p>
           </div>
           <Button onClick={() => openDialog()} className="flex items-center gap-2">
@@ -136,101 +188,135 @@ setFilters((f) => ({ ...f, total: res.data.total || 0 }));
           </Button>
         </div>
 
-        {/* Search + Table */}
-        <div className="bg-white shadow rounded-2xl p-4">
-          <div className="flex items-center justify-between mb-3">
-            <div className="relative w-1/3">
-              <Search className="absolute left-2 top-2.5 text-gray-400" size={18} />
+        {/* Filters */}
+        <div className="bg-white p-4 shadow-sm border rounded-xl flex flex-wrap items-center justify-between gap-4">
+          <div className="flex items-center gap-3 w-full sm:w-auto">
+            <div className="relative">
+              <Search size={16} className="absolute left-2 top-2.5 text-gray-400" />
               <Input
                 placeholder="Search system code..."
-                className="pl-8"
+                className="pl-8 w-64"
                 value={search}
                 onChange={(e) => setSearch(e.target.value)}
               />
             </div>
-            <Pagination pagination={filters} filters={filters} setFilters={setFilters} />
+
+            {user.role === "super_admin" && (
+              <Select
+                value={selectedSchool || ""}
+                onValueChange={(v) => setSelectedSchool(v)}
+              >
+                <SelectTrigger className="w-64">
+                  <SelectValue placeholder="Filter by School" />
+                </SelectTrigger>
+                <SelectContent>
+                  {schools.map((s) => (
+                    <SelectItem key={s.id} value={s.id}>
+                      {s.name}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            )}
           </div>
 
-          <div className="overflow-x-auto">
-            <table className="min-w-full text-sm border border-gray-200 rounded-md">
-              <thead className="bg-gray-50 text-gray-700">
-                <tr>
-                  <th className="p-3 text-left">System Code ID</th>
-                  <th className="p-3 text-left">Description</th>
-                  {/* <th className="p-3 text-left">Line Items</th> */}
-                  <th className="p-3 text-center w-32">Actions</th>
-                </tr>
-              </thead>
-              <tbody>
-                {systemCodes.map((code) => (
+          <Pagination pagination={filters} filters={filters} setFilters={setFilters} />
+        </div>
+
+        {/* Table */}
+        <div className="bg-white rounded-xl shadow-sm border overflow-hidden">
+          <table className="min-w-full text-sm border-collapse">
+            <thead className="bg-gray-50 border-b text-gray-700">
+              <tr>
+                <th className="px-4 py-3 text-left">System Code</th>
+                <th className="px-4 py-3 text-left">Description</th>
+                {user.role === "super_admin" && (
+                  <th className="px-4 py-3 text-left">School</th>
+                )}
+                <th className="px-4 py-3 text-center w-32">Actions</th>
+              </tr>
+            </thead>
+            <tbody>
+              {!loading && systemCodes.length > 0 ? (
+                systemCodes.map((code) => (
                   <tr key={code.id} className="border-t hover:bg-gray-50">
-                    <td className="p-3 font-medium">{code.system_code_id}</td>
-                    <td className="p-3">{code.description}</td>
-                    {/* <td className="p-3 text-gray-600">
-                      {code.items?.length > 0
-                        ? code.items.map((it) => it.label).join(', ')
-                        : '-'}
-                    </td> */}
-                    <td className="p-3 text-center">
+                    <td className="px-4 py-3 font-medium">{code.code}</td>
+                    <td className="px-4 py-3">{code.description}</td>
+                    {user.role === "super_admin" && (
+                      <td className="px-4 py-3 text-gray-600">
+                        {code.school_name || "-"}
+                      </td>
+                    )}
+                    <td className="px-4 py-3 text-center">
                       <div className="flex justify-center gap-2">
-                        <Button
-                          size="icon"
-                          variant="outline"
-                          onClick={() => openDialog(code)}
-                        >
+                        <Button size="icon" variant="outline" onClick={() => openDialog(code)}>
                           <Pencil size={16} />
                         </Button>
-                        <Button
-                          size="icon"
-                          variant="destructive"
-                          onClick={() => handleDelete(code.id)}
-                        >
+                        <Button size="icon" variant="destructive" onClick={() => handleDelete(code.id)}>
                           <Trash2 size={16} />
                         </Button>
                       </div>
                     </td>
                   </tr>
-                ))}
-                {!loading && systemCodes.length === 0 && (
-                  <tr>
-                    <td colSpan="4" className="text-center py-6 text-gray-500">
-                      No system codes found.
-                    </td>
-                  </tr>
-                )}
-              </tbody>
-            </table>
-          </div>
+                ))
+              ) : (
+                <tr>
+                  <td
+                    colSpan={user.role === "super_admin" ? 4 : 3}
+                    className="text-center py-6 text-gray-500"
+                  >
+                    {loading ? "Loading..." : "No system codes found."}
+                  </td>
+                </tr>
+              )}
+            </tbody>
+          </table>
         </div>
 
-        {/* Add/Edit Dialog */}
+        {/* Dialog */}
         <Dialog open={showDialog} onOpenChange={setShowDialog}>
           <DialogContent className="max-w-2xl">
             <DialogHeader>
-              <DialogTitle>
-                {editing ? 'Edit System Code' : 'Add System Code'}
-              </DialogTitle>
+              <DialogTitle>{editing ? "Edit System Code" : "Add System Code"}</DialogTitle>
             </DialogHeader>
 
             <div className="space-y-4">
+              {user.role === "super_admin" && (
+                <div>
+                  <label className="text-sm font-medium text-gray-700">Select School</label>
+                  <Select
+                    value={form.school_id || ""}
+                    onValueChange={(v) => setForm({ ...form, school_id: v })}
+                  >
+                    <SelectTrigger className="mt-1">
+                      <SelectValue placeholder="Choose a school" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {schools.map((s) => (
+                        <SelectItem key={s.id} value={s.id}>
+                          {s.name}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </div>
+              )}
+
               <div className="grid grid-cols-2 gap-4">
                 <Input
                   placeholder="System Code ID"
-                  value={form.system_code_id}
+                  value={form.code}
                   disabled={!!editing}
-                  onChange={(e) =>
-                    setForm({ ...form, system_code_id: e.target.value })
-                  }
+                  onChange={(e) => setForm({ ...form, code: e.target.value })}
                 />
                 <Input
                   placeholder="Description"
                   value={form.description}
-                  onChange={(e) =>
-                    setForm({ ...form, description: e.target.value })
-                  }
+                  onChange={(e) => setForm({ ...form, description: e.target.value })}
                 />
               </div>
 
+              {/* Items */}
               <div>
                 <div className="flex justify-between items-center mb-2">
                   <h3 className="font-medium">Line Items</h3>
@@ -238,6 +324,7 @@ setFilters((f) => ({ ...f, total: res.data.total || 0 }));
                     + Add Item
                   </Button>
                 </div>
+
                 <div className="space-y-2">
                   {form.items.map((item, idx) => (
                     <div
@@ -247,29 +334,22 @@ setFilters((f) => ({ ...f, total: res.data.total || 0 }));
                       <Input
                         placeholder="Code"
                         value={item.code}
-                        onChange={(e) =>
-                          handleLineChange(idx, 'code', e.target.value)
-                        }
+                        onChange={(e) => handleLineChange(idx, "code", e.target.value)}
                       />
                       <Input
                         placeholder="Label"
                         value={item.label}
-                        onChange={(e) =>
-                          handleLineChange(idx, 'label', e.target.value)
-                        }
+                        onChange={(e) => handleLineChange(idx, "label", e.target.value)}
                       />
-                      <div className="flex justify-between">
+                      <div className="flex justify-between items-center">
                         <label className="flex items-center gap-2 text-sm text-gray-600">
-  <input
-    type="checkbox"
-    checked={item.is_active}
-    onChange={(e) =>
-      handleLineChange(idx, 'is_active', e.target.checked)
-    }
-  />
-  Active
-</label>
-
+                          <input
+                            type="checkbox"
+                            checked={item.is_active}
+                            onChange={(e) => handleLineChange(idx, "is_active", e.target.checked)}
+                          />
+                          Active
+                        </label>
                         <Button
                           size="sm"
                           variant="destructive"

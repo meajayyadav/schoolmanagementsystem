@@ -1,106 +1,153 @@
 const { v4: uuidv4 } = require("uuid");
-const { getCentralDb } = require("../db");
+const { getCentralDb, getSchoolDbByName } = require("../db");
 
-// CREATE
+/**
+ * CREATE — Super Admin only, for a specific school
+ */
+/**
+ * Create System Code
+ * - Super Admin selects school → code created in that school’s DB
+ */
 async function createSystemCode(req, res) {
   try {
     const user = req.user;
+    const { school_id, code, description, items } = req.body;
+
     if (user.role !== "super_admin") {
-      return res
-        .status(403)
-        .json({ detail: "Only super admins can create system codes" });
+      return res.status(403).json({ detail: "Only super admins can create system codes" });
     }
 
-    const { system_code_id, codeId, description, items } = req.body;
-    const finalId = system_code_id || codeId;
-
-    if (!finalId || !description) {
-      return res
-        .status(400)
-        .json({ detail: "system_code_id and description are required" });
+    if (!school_id || !code) {
+      return res.status(400).json({ detail: "school_id and system_code_id are required" });
     }
 
     const centralDb = getCentralDb();
-    const id = uuidv4();
+    const school = await centralDb.collection("schools").findOne({ id: school_id });
+    if (!school) return res.status(404).json({ detail: "School not found" });
 
-    const systemCode = {
-      id,
-      system_code_id: finalId,
-      description,
-      items: items || [], // ✅ fix here
-      created_by: user.id,
+    const schoolDb = getSchoolDbByName(school.db_name);
+
+    const existing = await schoolDb
+      .collection("system_codes")
+      .findOne({ code });
+
+    if (existing) {
+      return res.status(400).json({ detail: "System code already exists in this school" });
+    }
+
+    const sysCode = {
+      id: uuidv4(),
+      school_id,
+      code,
+      description: description || "",
+      items: Array.isArray(items) ? items : [],
       created_at: new Date(),
-      updated_at: new Date(),
     };
 
-    await centralDb.collection("system_codes").insertOne(systemCode);
-    res
-      .status(201)
-      .json({ message: "System code created successfully", data: systemCode });
+    await schoolDb.collection("system_codes").insertOne(sysCode);
+    res.json(sysCode);
   } catch (err) {
     console.error("❌ createSystemCode error:", err);
     res.status(500).json({ detail: "Failed to create system code" });
   }
 }
 
-// READ
+
+/**
+ * Get System Codes for a School
+ * - Works for both school admins and super admins
+ */
 async function getSystemCodes(req, res) {
   try {
+    const user = req.user;
+    const schoolId = req.query.school_id || user.school_id;
+
+    if (!schoolId)
+      return res.status(400).json({ detail: "school_id is required" });
+
     const centralDb = getCentralDb();
-    const { limit = 10, page = 1 } = req.query;
-    const skip = (page - 1) * limit;
+    const school = await centralDb.collection("schools").findOne({ id: schoolId });
+    if (!school) return res.status(404).json({ detail: "School not found" });
 
-    const total = await centralDb.collection("system_codes").countDocuments();
-    const items = await centralDb
-      .collection("system_codes")
-      .find({})
-      .skip(skip)
-      .limit(parseInt(limit))
-      .toArray();
+    const schoolDb = getSchoolDbByName(school.db_name);
+    const codes = await schoolDb.collection("system_codes").find({}).toArray();
 
-    res.json({ items, total });
+    res.json(codes);
   } catch (err) {
     console.error("❌ getSystemCodes error:", err);
     res.status(500).json({ detail: "Failed to fetch system codes" });
   }
 }
 
-// UPDATE
-// UPDATE system code with line items
+
+
+/**
+ * UPDATE — Super Admin only, for a specific school
+ */
 async function updateSystemCode(req, res) {
   try {
+    const user = req.user;
     const { id } = req.params;
-    const { description, items } = req.body;
+    const { school_id, description, items } = req.body;
+
+    if (user.role !== "super_admin") {
+      return res.status(403).json({ detail: "Only super admins can update system codes" });
+    }
+
+    if (!school_id) return res.status(400).json({ detail: "school_id is required" });
+
     const centralDb = getCentralDb();
+    const school = await centralDb.collection("schools").findOne({ id: school_id });
+    if (!school) return res.status(404).json({ detail: "School not found" });
 
-    const updateFields = {
-      ...(description && { description }),
-      ...(items && { items }), // ✅ Save all line items, including active/inactive states
-      updated_at: new Date(),
-    };
+    const schoolDb = getSchoolDbByName(school.db_name);
 
-    const result = await centralDb
-      .collection("system_codes")
-      .updateOne({ id }, { $set: updateFields });
+    const result = await schoolDb.collection("system_codes").updateOne(
+      { id },
+      {
+        $set: {
+          description,
+          items: Array.isArray(items) ? items : [],
+          updated_at: new Date(),
+        },
+      }
+    );
 
     if (result.matchedCount === 0)
       return res.status(404).json({ detail: "System code not found" });
 
     res.json({ message: "System code updated successfully" });
   } catch (err) {
-    console.error(err);
+    console.error("❌ updateSystemCode error:", err);
     res.status(500).json({ detail: "Failed to update system code" });
   }
 }
 
 
-// DELETE
+
+/**
+ * DELETE — Super Admin only, for a specific school
+ */
 async function deleteSystemCode(req, res) {
   try {
-    const { id } = req.params;
-    const centralDb = getCentralDb();
+    const user = req.user;
+    if (user.role !== "super_admin") {
+      return res.status(403).json({ detail: "Only super admins can delete system codes" });
+    }
 
-    await centralDb.collection("system_codes").deleteOne({ id });
+    const { id } = req.params;
+    const { school_id } = req.query;
+
+    if (!school_id)
+      return res.status(400).json({ detail: "school_id is required" });
+
+    const centralDb = getCentralDb();
+    const school = await centralDb.collection("schools").findOne({ id: school_id });
+    if (!school) return res.status(404).json({ detail: "School not found" });
+
+    const schoolDb = getSchoolDbByName(school.db_name);
+    await schoolDb.collection("system_codes").deleteOne({ id });
+
     res.json({ message: "System code deleted successfully" });
   } catch (err) {
     console.error("❌ deleteSystemCode error:", err);

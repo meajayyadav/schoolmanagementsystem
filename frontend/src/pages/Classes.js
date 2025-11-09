@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react';
 import Layout from '@/components/Layout';
-import { classesApi, schoolsApi, subjectsApi } from '@/api';
+import { classesApi, schoolsApi, subjectsApi,systemCodesApi } from '@/api';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import {
@@ -30,7 +30,7 @@ export default function Classes() {
   const [selectedSchoolId, setSelectedSchoolId] = useState('');
   const [loading, setLoading] = useState(false);
   const [showDialog, setShowDialog] = useState(false);
-
+const [systemClasses, setSystemClasses] = useState([]);
   const [formData, setFormData] = useState({
     name: '',
     grade: '',
@@ -52,7 +52,31 @@ export default function Classes() {
     total: 0,
     totalPages: 1,
   });
+useEffect(() => {
+  async function fetchSystemCodes() {
+    try {
+      const schoolId =
+        user.role === "super_admin" ? formData.school_id : user.school_id;
+      if (!schoolId) return;
 
+      const res = await systemCodesApi.getAll({ school_id: schoolId });
+      // filter system code group for "CLASS"
+      const classCodes = res.data.filter(
+        (c) => c.code === "CLS" && Array.isArray(c.items)
+      );
+
+      // Flatten the line items into options
+      const options =
+        classCodes.length > 0 ? classCodes[0].items.map((i) => i.label) : [];
+      setSystemClasses(options);
+    } catch (err) {
+      console.error("❌ Failed to load system codes:", err);
+      toast.error("Failed to load class list from system codes");
+    }
+  }
+
+  fetchSystemCodes();
+}, [formData.school_id, user]);
   // 🔹 Load schools and subjects for super admin
   useEffect(() => {
     if (user?.role === 'super_admin') loadSchools();
@@ -387,12 +411,22 @@ export default function Classes() {
               </Select>
             )}
 
-            <Input
-              placeholder="Class Name"
-              value={formData.name}
-              onChange={(e) => setFormData({ ...formData, name: e.target.value })}
-              required
-            />
+            <Select
+  value={formData.name}
+  onValueChange={(v) => setFormData({ ...formData, name: v })}
+>
+  <SelectTrigger className="w-full">
+    <SelectValue placeholder="Select Class Name" />
+  </SelectTrigger>
+  <SelectContent>
+    {systemClasses.map((cls, idx) => (
+      <SelectItem key={idx} value={cls}>
+        {cls}
+      </SelectItem>
+    ))}
+  </SelectContent>
+</Select>
+
             <Input
               placeholder="Grade"
               value={formData.grade}

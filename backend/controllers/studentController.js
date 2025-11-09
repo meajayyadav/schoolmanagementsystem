@@ -30,22 +30,24 @@ async function createStudent(req, res) {
     const picturePath = req.file ? `/uploads/${req.file.filename}` : null;
 
     const payload = {
-      id: uuidv4(),
-      name: req.body.name,
-      roll_number: req.body.roll_number,
-      grade_level: req.body.grade_level,
-      class_section: req.body.class_section,
-      enrollment_date: req.body.enrollment_date
-        ? new Date(req.body.enrollment_date).toISOString()
-        : new Date().toISOString(),
-      father_name: req.body.father_name || '',
-      date_of_birth: req.body.date_of_birth
-        ? new Date(req.body.date_of_birth).toISOString()
-        : null,
-      picture: picturePath,
-      school_id: school.id,
-      created_at: new Date().toISOString(),
-    };
+  id: uuidv4(),
+  name: req.body.name,
+  roll_number: req.body.roll_number,
+  class_id: req.body.class_id || null, // ✅ fixed
+  grade_level: req.body.grade_level,
+  class_section: req.body.class_section,
+  enrollment_date: req.body.enrollment_date
+    ? new Date(req.body.enrollment_date).toISOString()
+    : new Date().toISOString(),
+  father_name: req.body.father_name || '',
+  date_of_birth: req.body.date_of_birth
+    ? new Date(req.body.date_of_birth).toISOString()
+    : null,
+  picture: picturePath,
+  school_id: school.id,
+  created_at: new Date().toISOString(),
+};
+
 
     await schoolDb.collection('students').insertOne(payload);
     return res.json({ detail: 'Student created successfully', data: payload });

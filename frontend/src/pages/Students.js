@@ -90,6 +90,7 @@ export default function Students() {
   const [showIdCard, setShowIdCard] = useState(false);
   const [selectedStudent, setSelectedStudent] = useState(null);
   const [imageFile, setImageFile] = useState(null);
+const [classes, setClasses] = useState([]);
 
   const [formData, setFormData] = useState({
     name: '',
@@ -138,6 +139,14 @@ useEffect(() => {
     loadStudents();
   }
 }, [selectedSchoolCode, filters.page, filters.limit, filters.name, filters.roll_number]);
+const loadClasses = async () => {
+  try {
+    const res = await classesApi.getAll();
+    setClasses(res.data || []);
+  } catch (err) {
+    toast.error('Failed to load classes');
+  }
+};
 
 
   const loadSchools = async () => {
@@ -263,6 +272,9 @@ useEffect(() => {
     });
     setImageFile(null);
   };
+const getClassName = (id) => {
+  return classes.find((cls) => cls.id === id)?.name || '-';
+};
 
   return (
     <Layout>
@@ -340,9 +352,10 @@ useEffect(() => {
         <thead className="bg-gray-50 border-b">
           <tr>
             <th className="px-4 py-3 text-left w-16">S.No</th>
-            <th className="px-4 py-3 text-left">Name</th>
+            <th className="px-4 py-3 text-left">Student Name</th>
+            <th className="px-4 py-3 text-left">Class</th>
             <th className="px-4 py-3 text-left">Roll No</th>
-            <th className="px-4 py-3 text-left">Grade</th>
+            {/* <th className="px-4 py-3 text-left">Grade</th> */}
             <th className="px-4 py-3 text-left">Section</th>
             <th className="px-4 py-3 text-left">Enrollment</th>
             <th className="px-4 py-3 text-right">Actions</th>
@@ -353,8 +366,9 @@ useEffect(() => {
             <tr key={s.id} className="border-t hover:bg-gray-50">
               <td className="px-4 py-3">{(filters.page - 1) * filters.limit + index + 1}</td>
               <td className="px-4 py-3">{s.name}</td>
+              <td className="px-4 py-3">{s.class_id}</td>
               <td className="px-4 py-3">{s.roll_number}</td>
-              <td className="px-4 py-3">{s.grade_level}</td>
+              {/* <td className="px-4 py-3">{s.grade_level}</td> */}
               <td className="px-4 py-3">{s.class_section}</td>
               <td className="px-4 py-3">
                 {s.enrollment_date

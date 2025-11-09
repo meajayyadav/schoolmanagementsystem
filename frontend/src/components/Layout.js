@@ -15,8 +15,9 @@ export default function Layout({ children }) {
 
   const navigation = [
     { name: 'Dashboard', path: '/dashboard', icon: Home, roles: ['super_admin', 'school_admin', 'teacher', 'student', 'parent'] },
-    { name: 'Schools', path: '/schools', icon: School, roles: ['super_admin'] },
-    { name: 'Students', path: '/students', icon: Users, roles: ['super_admin', 'school_admin', 'teacher', 'parent'] },
+    { name: 'Admission', path: '/admission', icon: ClipboardCheck, roles: ['super_admin', 'school_admin', 'teacher'] },
+    { name: 'All Schools', path: '/schools', icon: School, roles: ['super_admin'] },
+    { name: 'All Students', path: '/students', icon: Users, roles: ['super_admin', 'school_admin', 'teacher', 'parent'] },
     { name: 'Teachers', path: '/teachers', icon: GraduationCap, roles: ['super_admin', 'school_admin'] },
     { name: 'Classes', path: '/classes', icon: BookOpen, roles: ['super_admin', 'school_admin', 'teacher'] },
     { name: 'Attendance', path: '/attendance', icon: ClipboardCheck, roles: ['super_admin', 'school_admin', 'teacher'] },

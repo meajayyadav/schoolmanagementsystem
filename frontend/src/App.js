@@ -3,6 +3,7 @@ import { Toaster } from '@/components/ui/sonner';
 import '@/App.css';
 import { AuthProvider, useAuth } from '@/contexts/AuthContext';
 import Landing from '@/pages/Landing';
+import Admission from '@/pages/Admission'
 import Dashboard from '@/pages/Dashboard';
 import Schools from '@/pages/Schools';
 import Students from '@/pages/Students';
@@ -43,6 +44,7 @@ function App() {
         <Routes>
           <Route path="/" element={<Landing />} />
           <Route path="/dashboard" element={<PrivateRoute><Dashboard /></PrivateRoute>} />
+          <Route path="/admission" element={<PrivateRoute><Admission /></PrivateRoute>} />
           <Route path="/schools" element={<PrivateRoute><Schools /></PrivateRoute>} />
           <Route path="/students" element={<PrivateRoute><Students /></PrivateRoute>} />
           <Route path="/teachers" element={<PrivateRoute><Teachers /></PrivateRoute>} />

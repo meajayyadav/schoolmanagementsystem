@@ -23,54 +23,61 @@ import {
   SelectValue,
 } from '@/components/ui/select';
 import { toast } from 'sonner';
-import { Plus, Users, MoreVertical, Pencil, Trash, Search, Filter, X } from 'lucide-react';
+import {
+  Plus,
+  Users,
+  MoreVertical,
+  Pencil,
+  Trash,
+  X,
+} from 'lucide-react';
 import { useAuth } from '@/contexts/AuthContext';
 import { Switch } from '@/components/ui/switch';
 import { MultiSelect } from '@/components/ui/multiselect';
 
-// ✅ Pagination Component (Top-right)
+// ✅ Pagination Component (used inside table container)
 const PaginationControl = ({ pagination, filters, setFilters }) => {
   const pageSizes = [5, 10, 15, 25, 50];
   return (
-    <div className="flex items-center justify-end gap-4 py-3">
-      <div className="flex items-center gap-2 text-sm font-medium text-gray-700">
+    <div className="flex items-center justify-end gap-4 p-4 border-t bg-gray-50">
+      <div className="flex items-center gap-2 text-sm text-gray-700 font-medium">
         <span>Rows per page:</span>
         <Select
           value={String(filters.limit)}
           onValueChange={(val) =>
-            setFilters({ ...filters, limit: Number(val), page: 1 })
+            setFilters((prev) => ({ ...prev, limit: parseInt(val), page: 1 }))
           }
         >
-          <SelectTrigger className="w-[70px] h-8 text-sm">
+          <SelectTrigger className="w-20">
             <SelectValue />
           </SelectTrigger>
           <SelectContent>
-            {pageSizes.map((size) => (
-              <SelectItem key={size} value={String(size)}>
-                {size}
+            {pageSizes.map((n) => (
+              <SelectItem key={n} value={String(n)}>
+                {n}
               </SelectItem>
             ))}
           </SelectContent>
         </Select>
       </div>
 
-      <div className="flex items-center gap-2">
+      <div className="flex items-center gap-3 text-sm text-gray-700 font-medium">
         <Button
           variant="outline"
           size="sm"
-          disabled={filters.page <= 1}
-          onClick={() => setFilters({ ...filters, page: filters.page - 1 })}
+          disabled={filters.page === 1}
+          onClick={() => setFilters((prev) => ({ ...prev, page: prev.page - 1 }))}
         >
           Prev
         </Button>
-        <span className="text-sm text-gray-700">
+        <span>
           Page {filters.page} of {pagination.totalPages || 1}
         </span>
         <Button
           variant="outline"
           size="sm"
           disabled={filters.page >= pagination.totalPages}
-          onClick={() => setFilters({ ...filters, page: filters.page + 1 })}
+          onClick={() => setFilters((prev) => ({ ...prev, page: prev.page + 1 }))}
         >
           Next
         </Button>
@@ -109,7 +116,6 @@ export default function Teachers() {
     page: 1,
     limit: 10,
   });
-  const [showFilters, setShowFilters] = useState(false);
   const [pagination, setPagination] = useState({ total: 0, totalPages: 1 });
 
   // ----------------------
@@ -163,26 +169,27 @@ export default function Teachers() {
     }
   };
 
-  const loadTeachers = async () => {
-    try {
-      setLoading(true);
-      const params = { ...filters };
-      if (user.role === 'super_admin') {
-        if (!selectedSchoolCode) return toast.error('Select a school first');
-        params.school_id = selectedSchoolCode;
-      }
-      const res = await teachersApi.getAll(params);
-      setTeachers(res.data.data || res.data || []);
-      setPagination({
-        total: res.data.total || 0,
-        totalPages: res.data.totalPages || 1,
-      });
-    } catch (err) {
-      toast.error(err.response?.data?.detail || 'Failed to load teachers');
-    } finally {
-      setLoading(false);
+  const loadTeachers = async (overrideFilters = null) => {
+  try {
+    setLoading(true);
+    const params = overrideFilters || { ...filters };
+    if (user.role === 'super_admin') {
+      if (!selectedSchoolCode) return toast.error('Select a school first');
+      params.school_id = selectedSchoolCode;
     }
-  };
+    const res = await teachersApi.getAll(params);
+    setTeachers(res.data.data || res.data || []);
+    setPagination({
+      total: res.data.total || 0,
+      totalPages: res.data.totalPages || 1,
+    });
+  } catch (err) {
+    toast.error(err.response?.data?.detail || 'Failed to load teachers');
+  } finally {
+    setLoading(false);
+  }
+};
+
 
   // ----------------------
   // CRUD Handlers
@@ -251,9 +258,6 @@ export default function Teachers() {
     });
   };
 
-  const clearFilters = () =>
-    setFilters({ name: '', class_assigned: '', subject: '', page: 1, limit: 10 });
-
   // ----------------------
   // UI
   // ----------------------
@@ -277,176 +281,187 @@ export default function Teachers() {
           </Button>
         </div>
 
-        {/* Filters + Pagination */}
-        <div className="flex flex-wrap items-center justify-between gap-3">
-          <div className="flex flex-wrap items-center gap-3">
-            <Button
-              variant={showFilters ? 'secondary' : 'outline'}
-              size="sm"
-              onClick={() => setShowFilters((p) => !p)}
+        {/* Filter Bar */}
+        <div className="bg-white border rounded-lg shadow-sm p-4 flex flex-wrap items-center gap-3">
+          {user.role === 'super_admin' && (
+            <Select
+              value={selectedSchoolCode}
+              onValueChange={(v) => setSelectedSchoolCode(v)}
             >
-              <Filter size={16} className="mr-2" /> {showFilters ? 'Hide Filters' : 'Add Filters'}
-            </Button>
+              <SelectTrigger className="w-[250px]">
+                <SelectValue placeholder="Select School" />
+              </SelectTrigger>
+              <SelectContent>
+                {schools.map((s) => (
+                  <SelectItem key={s.code} value={s.code}>
+                    {s.name}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          )}
 
-            {showFilters && (
-              <>
-                <div className="relative">
-                  <Search className="absolute left-3 top-2.5 text-gray-400" size={16} />
-                  <Input
-                    className="pl-9 w-52"
-                    placeholder="Search by name"
-                    value={filters.name}
-                    onChange={(e) =>
-                      setFilters({ ...filters, name: e.target.value, page: 1 })
-                    }
-                  />
-                </div>
-
-                {/* Class Filter */}
-                <Select
-                  value={filters.class_assigned}
-                  onValueChange={(v) =>
-                    setFilters({ ...filters, class_assigned: v, page: 1 })
-                  }
-                >
-                  <SelectTrigger className="w-40">
-                    <SelectValue placeholder="Filter by class" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="all">All Classes</SelectItem>
-                    {classes
-                      .filter((c) => c?.name || c?.class_name || c?.id)
-                      .map((c) => {
-                        const label =
-                          c.name || c.class_name || `Class ${c.id || ''}`;
-                        const value =
-                          c.name ||
-                          c.class_name ||
-                          `class_${c.id || Math.random().toString(36).slice(2, 8)}`;
-                        return (
-                          <SelectItem key={value} value={value}>
-                            {label}
-                          </SelectItem>
-                        );
-                      })}
-                  </SelectContent>
-                </Select>
-
-                {/* Subject Filter */}
-                <Select
-                  value={filters.subject}
-                  onValueChange={(v) =>
-                    setFilters({ ...filters, subject: v, page: 1 })
-                  }
-                >
-                  <SelectTrigger className="w-40">
-                    <SelectValue placeholder="Filter by subject" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="all">All Subjects</SelectItem>
-                    {subjects
-                      .filter((s) => s?.name)
-                      .map((s) => (
-                        <SelectItem key={s.name} value={s.name}>
-                          {s.name}
-                        </SelectItem>
-                      ))}
-                  </SelectContent>
-                </Select>
-
-                <Button variant="outline" size="sm" onClick={clearFilters}>
-                  <X size={14} className="mr-2" /> Clear Filters
-                </Button>
-              </>
-            )}
-          </div>
-
-          <PaginationControl
-            pagination={pagination}
-            filters={filters}
-            setFilters={setFilters}
+          <Input
+            placeholder="Search by name"
+            value={filters.name}
+            onChange={(e) =>
+              setFilters({ ...filters, name: e.target.value, page: 1 })
+            }
+            className="w-56"
           />
+
+          {/* Subject Dropdown */}
+          <Select
+            value={filters.subject}
+            onValueChange={(v) => setFilters({ ...filters, subject: v, page: 1 })}
+          >
+            <SelectTrigger className="w-56">
+              <SelectValue placeholder="Filter by Subject" />
+            </SelectTrigger>
+            <SelectContent>
+              {subjects.map((s) => (
+                <SelectItem key={s.id} value={s.name}>
+                  {s.name}
+                </SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+
+          {/* Class Dropdown */}
+          <Select
+            value={filters.class_assigned}
+            onValueChange={(v) =>
+              setFilters({ ...filters, class_assigned: v, page: 1 })
+            }
+          >
+            <SelectTrigger className="w-56">
+              <SelectValue placeholder="Filter by Class" />
+            </SelectTrigger>
+            <SelectContent>
+              {classes.map((c) => (
+                <SelectItem key={c.id} value={c.name || c.class_name}>
+                  {c.name || c.class_name}
+                </SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+{/* Apply Filters button before Clear */}
+<Button
+  size="sm"
+  onClick={() => {
+    setFilters((prev) => ({ ...prev, page: 1 }));
+    loadTeachers();
+  }}
+>
+  Apply Filters
+</Button>
+
+<Button
+  variant="outline"
+  size="sm"
+  onClick={() =>
+    setFilters({ name: '', class_assigned: '', subject: '', page: 1, limit: 10 })
+  }
+>
+  <X size={16} className="mr-1" /> Clear
+</Button>
+
         </div>
 
         {/* Table */}
         <div className="bg-white rounded-lg shadow-sm border overflow-hidden">
+          <div className="flex justify-between items-center px-4 border-b bg-gray-50">
+    <h2 className="text-base font-medium text-gray-800 py-3">
+      Teacher Records
+    </h2>
+    {/* ✅ Pagination Inside Table Container */}
+              <PaginationControl
+                pagination={pagination}
+                filters={filters}
+                setFilters={setFilters}
+              />
+  </div>
           {loading ? (
             <div className="flex justify-center items-center h-64">
               <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600"></div>
             </div>
           ) : teachers.length > 0 ? (
-            <table className="min-w-full text-sm border-collapse">
-              <thead className="bg-gray-50 border-b">
-                <tr>
-                  <th className="px-4 py-3 text-left">Name</th>
-                  <th className="px-4 py-3 text-left">Subjects</th>
-                  <th className="px-4 py-3 text-left">Classes Assigned</th>
-                  <th className="px-4 py-3 text-left">Fee Status</th>
-                  <th className="px-4 py-3 text-left">Active</th>
-                  <th className="px-4 py-3 text-right">Actions</th>
-                </tr>
-              </thead>
-              <tbody>
-                {teachers.map((t) => (
-                  <tr key={t.id} className="border-t hover:bg-gray-50">
-                    <td className="px-4 py-3 font-medium text-gray-900">{t.name}</td>
-                    <td className="px-4 py-3">
-                      {Array.isArray(t.subjects)
-                        ? t.subjects.join(', ')
-                        : t.subject}
-                    </td>
-                    <td className="px-4 py-3">
-                      {Array.isArray(t.classes_assigned)
-                        ? t.classes_assigned.join(', ')
-                        : t.class_assigned}
-                    </td>
-                    <td
-                      className={`px-4 py-3 ${
-                        t.fee_status === 'Paid' ? 'text-green-600' : 'text-red-500'
-                      }`}
-                    >
-                      {t.fee_status}
-                    </td>
-                    <td className="px-4 py-3">
-                      <Switch
-                        checked={t.is_active}
-                        onCheckedChange={() => toggleTeacherStatus(t)}
-                      />
-                    </td>
-                    <td className="px-4 py-3 text-right">
-                      <DropdownMenu>
-                        <DropdownMenuTrigger asChild>
-                          <Button variant="ghost" size="sm">
-                            <MoreVertical size={18} />
-                          </Button>
-                        </DropdownMenuTrigger>
-                        <DropdownMenuContent align="end">
-                          <DropdownMenuItem
-                            onClick={() => {
-                              setEditing(t);
-                              setFormData({
-                                ...t,
-                                subjects: t.subjects || [],
-                                classes_assigned: t.classes_assigned || [],
-                              });
-                              setShowDialog(true);
-                            }}
-                          >
-                            <Pencil className="w-4 h-4 mr-2" /> Edit
-                          </DropdownMenuItem>
-                          <DropdownMenuItem
-                            onClick={() => handleDelete(t.id)}
-                            className="text-red-600"
-                          >
-                            <Trash className="w-4 h-4 mr-2" /> Delete
-                          </DropdownMenuItem>
-                        </DropdownMenuContent>
-                      </DropdownMenu>
-                    </td>
+            <>
+              <table className="min-w-full text-sm border-collapse">
+                <thead className="bg-gray-50 border-b">
+                  <tr>
+                    <th className="px-4 py-3 text-left">Name</th>
+                    <th className="px-4 py-3 text-left">Subjects</th>
+                    <th className="px-4 py-3 text-left">Classes Assigned</th>
+                    <th className="px-4 py-3 text-left">Fee Status</th>
+                    <th className="px-4 py-3 text-left">Active</th>
+                    <th className="px-4 py-3 text-right">Actions</th>
                   </tr>
-                ))}
-              </tbody>
-            </table>
+                </thead>
+                <tbody>
+                  {teachers.map((t) => (
+                    <tr key={t.id} className="border-t hover:bg-gray-50">
+                      <td className="px-4 py-3 font-medium text-gray-900">{t.name}</td>
+                      <td className="px-4 py-3">
+                        {Array.isArray(t.subjects)
+                          ? t.subjects.join(', ')
+                          : t.subject}
+                      </td>
+                      <td className="px-4 py-3">
+                        {Array.isArray(t.classes_assigned)
+                          ? t.classes_assigned.join(', ')
+                          : t.class_assigned}
+                      </td>
+                      <td
+                        className={`px-4 py-3 ${
+                          t.fee_status === 'Paid' ? 'text-green-600' : 'text-red-500'
+                        }`}
+                      >
+                        {t.fee_status}
+                      </td>
+                      <td className="px-4 py-3">
+                        <Switch
+                          checked={t.is_active}
+                          onCheckedChange={() => toggleTeacherStatus(t)}
+                        />
+                      </td>
+                      <td className="px-4 py-3 text-right">
+                        <DropdownMenu>
+                          <DropdownMenuTrigger asChild>
+                            <Button variant="ghost" size="sm">
+                              <MoreVertical size={18} />
+                            </Button>
+                          </DropdownMenuTrigger>
+                          <DropdownMenuContent align="end">
+                            <DropdownMenuItem
+                              onClick={() => {
+                                setEditing(t);
+                                setFormData({
+                                  ...t,
+                                  subjects: t.subjects || [],
+                                  classes_assigned: t.classes_assigned || [],
+                                });
+                                setShowDialog(true);
+                              }}
+                            >
+                              <Pencil className="w-4 h-4 mr-2" /> Edit
+                            </DropdownMenuItem>
+                            <DropdownMenuItem
+                              onClick={() => handleDelete(t.id)}
+                              className="text-red-600"
+                            >
+                              <Trash className="w-4 h-4 mr-2" /> Delete
+                            </DropdownMenuItem>
+                          </DropdownMenuContent>
+                        </DropdownMenu>
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+
+              
+            </>
           ) : (
             <div className="text-center py-12">
               <Users className="mx-auto text-gray-400 mb-4" size={64} />
@@ -496,27 +511,20 @@ export default function Teachers() {
               />
 
               <MultiSelect
-                options={subjects
-                  .filter((s) => s?.name)
-                  .map((s) => ({
-                    label: s.name,
-                    value: s.name,
-                  }))}
+                options={subjects.map((s) => ({
+                  label: s.name,
+                  value: s.name,
+                }))}
                 value={formData.subjects}
                 onChange={(val) => setFormData({ ...formData, subjects: val })}
                 placeholder="Select Subjects"
               />
 
               <MultiSelect
-                options={classes
-                  .filter((c) => c?.name || c?.class_name || c?.id)
-                  .map((c) => ({
-                    label: c.name || c.class_name || `Class ${c.id || ''}`,
-                    value:
-                      c.name ||
-                      c.class_name ||
-                      `class_${c.id || Math.random().toString(36).slice(2, 8)}`,
-                  }))}
+                options={classes.map((c) => ({
+                  label: c.name || c.class_name,
+                  value: c.name || c.class_name,
+                }))}
                 value={formData.classes_assigned}
                 onChange={(val) =>
                   setFormData({ ...formData, classes_assigned: val })
