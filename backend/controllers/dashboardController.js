@@ -27,7 +27,9 @@ async function getDashboardStats(req, res) {
     const schoolDb = getSchoolDbByName(school.db_name);
 
     const total_students = await schoolDb.collection('students').countDocuments({});
-    const total_teachers = await schoolDb.collection('users').countDocuments({ role: 'teacher' });
+    // const total_teachers = await schoolDb.collection('users').countDocuments({ role: 'teacher' });
+    const total_teachers = await schoolDb.collection('teachers').countDocuments({});
+
     const total_classes = await schoolDb.collection('classes').countDocuments({});
 
     return res.json({ total_students, total_teachers, total_classes });

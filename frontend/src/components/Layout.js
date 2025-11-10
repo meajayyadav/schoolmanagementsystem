@@ -29,9 +29,9 @@ export default function Layout({ children }) {
     { name: 'Exams', path: '/exams', icon: FileText, roles: ['super_admin', 'school_admin', 'teacher', 'student'] },
     { name: 'Report Cards', path: '/report-cards', icon: Award, roles: ['super_admin', 'school_admin', 'teacher', 'parent'] },
     { name: 'Staff', path: '/staff', icon: Briefcase, roles: ['super_admin', 'school_admin'] },
-    { name: 'users', path: '/users', icon: Briefcase, roles: ['super_admin', 'school_admin'] },
-    { name: 'subject', path: '/subject', icon: Briefcase, roles: ['super_admin', 'school_admin'] },
-    { name: 'systemCode', path: '/systemcode', icon: Briefcase, roles: ['super_admin', 'school_admin'] }
+    { name: 'All Users', path: '/users', icon: Briefcase, roles: ['super_admin', 'school_admin'] },
+    { name: 'Subject', path: '/subject', icon: Briefcase, roles: ['super_admin', 'school_admin'] },
+    { name: 'SystemCode', path: '/systemcode', icon: Briefcase, roles: ['super_admin'] }
   ];
 
   const filteredNav = navigation.filter(item => item.roles.includes(user?.role));

@@ -1,6 +1,6 @@
 import { useEffect, useState, useRef } from 'react';
 import Layout from '@/components/Layout';
-import { studentsApi, schoolsApi } from '@/api';
+import { studentsApi, schoolsApi,classesApi } from '@/api';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import {
@@ -26,7 +26,7 @@ import {
 } from '@/components/ui/select';
 import { useAuth } from '@/contexts/AuthContext';
 import { useReactToPrint } from 'react-to-print';
-
+import { useNavigate } from 'react-router-dom';//for navigating one page to another on button click
 const PaginationControl = ({ pagination, filters, setFilters }) => {
   const pageSizes = [5, 10, 15, 25, 50];
 
@@ -139,14 +139,32 @@ useEffect(() => {
     loadStudents();
   }
 }, [selectedSchoolCode, filters.page, filters.limit, filters.name, filters.roll_number]);
+useEffect(() => {
+  if (
+    user?.role === 'school_admin' ||
+    (user?.role === 'super_admin' && selectedSchoolCode)
+  ) {
+    loadClasses();
+  }
+}, [user, selectedSchoolCode]);
+
 const loadClasses = async () => {
   try {
-    const res = await classesApi.getAll();
-    setClasses(res.data || []);
+    const params = {};
+
+    if (user.role === 'super_admin' && selectedSchoolCode) {
+      params.school_id = selectedSchoolCode;
+    } else if (user.role === 'school_admin') {
+      params.school_id = user.school_id;
+    }
+
+    const res = await classesApi.getAll(params);
+    setClasses(res.data.data || res.data || []);
   } catch (err) {
     toast.error('Failed to load classes');
   }
 };
+
 
 
   const loadSchools = async () => {
@@ -206,31 +224,33 @@ const loadClasses = async () => {
       toast.error(err.response?.data?.detail || 'Failed to add student');
     }
   };
+const handleEdit = (student) => {
+  navigate('/admission', { state: { student } });
+};
+  // const handleEdit = (student) => {
+  //   setSelectedStudent(student);
 
-  const handleEdit = (student) => {
-    setSelectedStudent(student);
+  //   // ✅ Safely prefill ISO date strings into "YYYY-MM-DD"
+  //   const formattedDOB = student.date_of_birth
+  //     ? new Date(student.date_of_birth).toISOString().split('T')[0]
+  //     : '';
+  //   const formattedEnroll = student.enrollment_date
+  //     ? new Date(student.enrollment_date).toISOString().split('T')[0]
+  //     : '';
 
-    // ✅ Safely prefill ISO date strings into "YYYY-MM-DD"
-    const formattedDOB = student.date_of_birth
-      ? new Date(student.date_of_birth).toISOString().split('T')[0]
-      : '';
-    const formattedEnroll = student.enrollment_date
-      ? new Date(student.enrollment_date).toISOString().split('T')[0]
-      : '';
+  //   setFormData({
+  //     name: student.name || '',
+  //     roll_number: student.roll_number || '',
+  //     grade_level: student.grade_level || '',
+  //     class_section: student.class_section || '',
+  //     enrollment_date: formattedEnroll,
+  //     father_name: student.father_name || '',
+  //     date_of_birth: formattedDOB,
+  //     school_id: student.school_id || '',
+  //   });
 
-    setFormData({
-      name: student.name || '',
-      roll_number: student.roll_number || '',
-      grade_level: student.grade_level || '',
-      class_section: student.class_section || '',
-      enrollment_date: formattedEnroll,
-      father_name: student.father_name || '',
-      date_of_birth: formattedDOB,
-      school_id: student.school_id || '',
-    });
-
-    setShowEditDialog(true);
-  };
+  //   setShowEditDialog(true);
+  // };
 
   const handleUpdate = async (e) => {
     e.preventDefault();
@@ -275,6 +295,8 @@ const loadClasses = async () => {
 const getClassName = (id) => {
   return classes.find((cls) => cls.id === id)?.name || '-';
 };
+const navigate = useNavigate();//navigation one page to another
+
 
   return (
     <Layout>
@@ -285,9 +307,13 @@ const getClassName = (id) => {
             <h1 className="text-3xl font-semibold text-gray-900">🎓 Students</h1>
             <p className="text-gray-600">Manage student enrollment and details</p>
           </div>
-          <Button onClick={() => setShowDialog(true)}>
+          {/* <Button onClick={() => setShowDialog(true)}>
             <Plus size={20} className="mr-2" /> Add Student
-          </Button>
+          </Button> */}
+          <Button onClick={() => navigate('/admission')}>
+  <Plus size={20} className="mr-2" /> Add Student
+</Button>
+
         </div>
 
         {/* Filters */}
@@ -366,7 +392,8 @@ const getClassName = (id) => {
             <tr key={s.id} className="border-t hover:bg-gray-50">
               <td className="px-4 py-3">{(filters.page - 1) * filters.limit + index + 1}</td>
               <td className="px-4 py-3">{s.name}</td>
-              <td className="px-4 py-3">{s.class_id}</td>
+            <td className="px-4 py-3">{getClassName(s.class_id)}</td>
+
               <td className="px-4 py-3">{s.roll_number}</td>
               {/* <td className="px-4 py-3">{s.grade_level}</td> */}
               <td className="px-4 py-3">{s.class_section}</td>

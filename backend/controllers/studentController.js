@@ -30,24 +30,23 @@ async function createStudent(req, res) {
     const picturePath = req.file ? `/uploads/${req.file.filename}` : null;
 
     const payload = {
-  id: uuidv4(),
-  name: req.body.name,
-  roll_number: req.body.roll_number,
-  class_id: req.body.class_id || null, // ✅ fixed
-  grade_level: req.body.grade_level,
-  class_section: req.body.class_section,
-  enrollment_date: req.body.enrollment_date
-    ? new Date(req.body.enrollment_date).toISOString()
-    : new Date().toISOString(),
-  father_name: req.body.father_name || '',
-  date_of_birth: req.body.date_of_birth
-    ? new Date(req.body.date_of_birth).toISOString()
-    : null,
-  picture: picturePath,
-  school_id: school.id,
-  created_at: new Date().toISOString(),
-};
-
+      id: uuidv4(),
+      name: req.body.name,
+      roll_number: req.body.roll_number,
+      class_id: req.body.class_id,
+      grade_level: req.body.grade_level,
+      class_section: req.body.class_section,
+      enrollment_date: req.body.enrollment_date
+        ? new Date(req.body.enrollment_date).toISOString()
+        : new Date().toISOString(),
+      father_name: req.body.father_name || '',
+      date_of_birth: req.body.date_of_birth
+        ? new Date(req.body.date_of_birth).toISOString()
+        : null,
+      picture: picturePath,
+      school_id: school.id,
+      created_at: new Date().toISOString(),
+    };
 
     await schoolDb.collection('students').insertOne(payload);
     return res.json({ detail: 'Student created successfully', data: payload });
@@ -153,47 +152,44 @@ async function deleteStudent(req, res) {
 async function listStudents(req, res) {
   try {
     const user = req.user;
-    const { name, roll_number, school_id, page = 1, limit = 10 } = req.query;
     const centralDb = getCentralDb();
 
-    let schoolIdToUse = user.school_id;
+    let schoolIdOrCode = user.school_id;
     if (user.role === 'super_admin') {
-      schoolIdToUse = school_id;
-      if (!schoolIdToUse)
-        return res.status(400).json({ detail: 'school_id is required for super admin' });
+      schoolIdOrCode = req.query.school_id;
+      if (!schoolIdOrCode) {
+        return res.status(400).json({ detail: 'school_id required for super admin' });
+      }
     }
 
-    const school = await centralDb.collection('schools').findOne(
-      { $or: [{ id: schoolIdToUse }, { code: schoolIdToUse }] },
-      { projection: { _id: 0 } }
-    );
-    if (!school) return res.status(404).json({ detail: 'School not found' });
+    const school = await centralDb.collection('schools').findOne({
+      $or: [{ id: schoolIdOrCode }, { code: schoolIdOrCode }],
+    });
+    if (!school) {
+      return res.status(404).json({ detail: 'School not found' });
+    }
 
     const schoolDb = getSchoolDbByName(school.db_name);
-    const query = {};
-    if (name) query.name = { $regex: name, $options: 'i' };
-    if (roll_number) query.roll_number = { $regex: roll_number, $options: 'i' };
 
-    const skip = (parseInt(page) - 1) * parseInt(limit);
-    const total = await schoolDb.collection('students').countDocuments(query);
-    const data = await schoolDb
-      .collection('students')
-      .find(query, { projection: { _id: 0 } })
-      .skip(skip)
-      .limit(parseInt(limit))
-      .toArray();
+    // 🟢 SAFE FILTER SECTION (add this)
+    const filter = {};
+    if (req.query.class_id) {
+      filter.class_id = req.query.class_id;
+    }
 
-    return res.json({
-      data,
-      total,
-      page: parseInt(page),
-      totalPages: Math.ceil(total / limit),
-    });
+    // Optional: filter by student_id or search by name
+    if (req.query.student_id) filter.id = req.query.student_id;
+    if (req.query.name) filter.name = new RegExp(req.query.name, 'i');
+
+    const students = await schoolDb.collection('students').find(filter).toArray();
+
+    return res.json({ data: students });
   } catch (err) {
-    console.error('listStudents error', err);
-    return res.status(500).json({ detail: 'Internal server error' });
+    console.error('listStudents error:', err);
+    res.status(500).json({ detail: 'Failed to load students' });
   }
 }
+
 
 /**
  * Get student by ID
