@@ -152,23 +152,30 @@ export default function UserManagement() {
   };
 
   // Add user
-  const handleSubmit = async (e) => {
-    e.preventDefault();
-    try {
-      const payload = { ...formData };
-      if (user.role === 'super_admin' && !payload.school_id)
-        return toast.error('Select a school before adding user');
-
-      await usersApi.create(payload);
-      toast.success('User created successfully');
-      setShowAddDialog(false);
-      resetForm();
-      loadUsers();
-    } catch (err) {
-      toast.error(err.response?.data?.detail || 'Failed to add user');
+  // Add user
+const handleSubmit = async (e) => {
+  e.preventDefault();
+  try {
+    const payload = { 
+      ...formData,
+      // Auto-set school_id for school admins
+      school_id: user.role === 'school_admin' ? user.school_id : formData.school_id
+    };
+    
+    // For super_admin, still require school selection
+    if (user.role === 'super_admin' && !payload.school_id) {
+      return toast.error('Select a school before adding user');
     }
-  };
 
+    await usersApi.create(payload);
+    toast.success('User created successfully');
+    setShowAddDialog(false);
+    resetForm();
+    loadUsers();
+  } catch (err) {
+    toast.error(err.response?.data?.detail || 'Failed to add user');
+  }
+};
   // Edit user
   const openEditDialog = (u) => {
     setSelectedUser(u);
@@ -223,7 +230,13 @@ export default function UserManagement() {
   };
 
   const resetForm = () =>
-    setFormData({ name: '', email: '', password: '', role: '', school_id: '' });
+  setFormData({ 
+    name: '', 
+    email: '', 
+    password: '', 
+    role: '', 
+    school_id: user.role === 'school_admin' ? user.school_id : '' 
+  });
 
   return (
     <Layout>
@@ -371,68 +384,72 @@ export default function UserManagement() {
       </div>
 
       {/* Add User Dialog */}
-      <Dialog open={showAddDialog} onOpenChange={setShowAddDialog}>
-        <DialogContent className="max-w-lg">
-          <DialogHeader>
-            <DialogTitle>Add New User</DialogTitle>
-          </DialogHeader>
-          <form onSubmit={handleSubmit} className="space-y-4">
-            {user.role === 'super_admin' && (
-              <Select
-                onValueChange={(v) => setFormData({ ...formData, school_id: v })}
-                value={formData.school_id}
-              >
-                <SelectTrigger className="w-full">
-                  <SelectValue placeholder="Select School" />
-                </SelectTrigger>
-                <SelectContent>
-                  {schools.map((s) => (
-                    <SelectItem key={s.id || s.code} value={s.id || s.code}>
-                      {s.name}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-            )}
-            <Input
-              placeholder="Full Name"
-              value={formData.name}
-              onChange={(e) => setFormData({ ...formData, name: e.target.value })}
-              required
-            />
-            <Input
-              placeholder="Email"
-              value={formData.email}
-              onChange={(e) => setFormData({ ...formData, email: e.target.value })}
-              required
-            />
-            <Input
-              type="password"
-              placeholder="Password"
-              value={formData.password}
-              onChange={(e) => setFormData({ ...formData, password: e.target.value })}
-              required
-            />
-            <Select
-              onValueChange={(v) => setFormData({ ...formData, role: v })}
-              value={formData.role}
-            >
-              <SelectTrigger className="w-full">
-                <SelectValue placeholder="Select Role" />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="school_admin">School Admin</SelectItem>
-                <SelectItem value="teacher">Teacher</SelectItem>
-                <SelectItem value="parent">Parent</SelectItem>
-                <SelectItem value="student">Student</SelectItem>
-              </SelectContent>
-            </Select>
-            <Button type="submit" className="w-full">
-              Add User
-            </Button>
-          </form>
-        </DialogContent>
-      </Dialog>
+      {/* Add User Dialog */}
+<Dialog open={showAddDialog} onOpenChange={setShowAddDialog}>
+  <DialogContent className="max-w-lg">
+    <DialogHeader>
+      <DialogTitle>Add New User</DialogTitle>
+    </DialogHeader>
+    <form onSubmit={handleSubmit} className="space-y-4">
+      {/* Only show school selection for super_admin */}
+      {user.role === 'super_admin' && (
+        <Select
+          onValueChange={(v) => setFormData({ ...formData, school_id: v })}
+          value={formData.school_id}
+        >
+          <SelectTrigger className="w-full">
+            <SelectValue placeholder="Select School" />
+          </SelectTrigger>
+          <SelectContent>
+            {schools.map((s) => (
+              <SelectItem key={s.id || s.code} value={s.id || s.code}>
+                {s.name}
+              </SelectItem>
+            ))}
+          </SelectContent>
+        </Select>
+      )}
+      
+      {/* Rest of the form remains the same */}
+      <Input
+        placeholder="Full Name"
+        value={formData.name}
+        onChange={(e) => setFormData({ ...formData, name: e.target.value })}
+        required
+      />
+      <Input
+        placeholder="Email"
+        value={formData.email}
+        onChange={(e) => setFormData({ ...formData, email: e.target.value })}
+        required
+      />
+      <Input
+        type="password"
+        placeholder="Password"
+        value={formData.password}
+        onChange={(e) => setFormData({ ...formData, password: e.target.value })}
+        required
+      />
+      <Select
+        onValueChange={(v) => setFormData({ ...formData, role: v })}
+        value={formData.role}
+      >
+        <SelectTrigger className="w-full">
+          <SelectValue placeholder="Select Role" />
+        </SelectTrigger>
+        <SelectContent>
+          <SelectItem value="school_admin">School Admin</SelectItem>
+          <SelectItem value="teacher">Teacher</SelectItem>
+          <SelectItem value="parent">Parent</SelectItem>
+          <SelectItem value="student">Student</SelectItem>
+        </SelectContent>
+      </Select>
+      <Button type="submit" className="w-full">
+        Add User
+      </Button>
+    </form>
+  </DialogContent>
+</Dialog>
 
       {/* Edit User Dialog */}
       <Dialog open={showEditDialog} onOpenChange={setShowEditDialog}>

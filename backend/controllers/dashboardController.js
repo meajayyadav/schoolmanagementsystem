@@ -15,21 +15,42 @@ async function getDashboardStats(req, res) {
   try {
     const user = req.user;
     const centralDb = getCentralDb();
+    const { school_id } = req.query; // ✅ read from query params
 
+    // ✅ Super Admin requesting specific school
     if (user.role === 'super_admin') {
+      if (school_id) {
+        // Find the selected school in central DB
+        const school = await centralDb.collection('schools').findOne({ id: school_id });
+        if (!school) return res.status(404).json({ detail: 'School not found' });
+
+        const schoolDb = getSchoolDbByName(school.db_name);
+
+        const total_students = await schoolDb.collection('students').countDocuments({});
+        const total_teachers = await schoolDb.collection('teachers').countDocuments({});
+        const total_classes = await schoolDb.collection('classes').countDocuments({});
+
+        return res.json({
+          total_students,
+          total_teachers,
+          total_classes,
+          total_schools: await centralDb.collection('schools').countDocuments({}),
+        });
+      }
+
+      // ✅ No school selected → show global summary
       const total_schools = await centralDb.collection('schools').countDocuments({});
       return res.json({ total_schools });
     }
 
+    // ✅ For School Admins / Teachers — use their own school
     const school = await centralDb.collection('schools').findOne({ id: user.school_id });
     if (!school) return res.status(404).json({ detail: 'School not found' });
 
     const schoolDb = getSchoolDbByName(school.db_name);
 
     const total_students = await schoolDb.collection('students').countDocuments({});
-    // const total_teachers = await schoolDb.collection('users').countDocuments({ role: 'teacher' });
     const total_teachers = await schoolDb.collection('teachers').countDocuments({});
-
     const total_classes = await schoolDb.collection('classes').countDocuments({});
 
     return res.json({ total_students, total_teachers, total_classes });

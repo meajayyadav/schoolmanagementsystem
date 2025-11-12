@@ -1,37 +1,64 @@
 const { v4: uuidv4 } = require('uuid');
 const { getCentralDb, getSchoolDbByName } = require('../db');
 
-// -------------------------
-// Create teacher profile (School Admin / Super Admin)
-// -------------------------
-// -------------------------
-// Create teacher profile
-// -------------------------
+
 async function createTeacher(req, res) {
   try {
     const user = req.user;
-    const { name, subjects, classes_assigned, fee_status, user_id, school_id } = req.body;
+    const { name, email, subjects, classes_assigned, fee_status, school_id } = req.body;
 
     if (!name) return res.status(400).json({ detail: 'Teacher name is required' });
+    if (!email) return res.status(400).json({ detail: 'Email is required' });
 
     const centralDb = getCentralDb();
+
+    // ✅ Determine target school
     let targetSchoolId = user.role === 'super_admin' ? school_id : user.school_id;
     if (!targetSchoolId) return res.status(400).json({ detail: 'School ID required' });
 
     const school = await centralDb.collection('schools').findOne({
-      $or: [{ id: targetSchoolId }, { code: targetSchoolId }]
+      $or: [{ id: targetSchoolId }, { code: targetSchoolId }],
     });
     if (!school) return res.status(404).json({ detail: 'School not found' });
 
+    // ✅ Get school DB
     const schoolDb = getSchoolDbByName(school.db_name);
 
-    const subjectsArray = Array.isArray(subjects) ? subjects : subjects ? [subjects] : [];
-    const classesArray = Array.isArray(classes_assigned) ? classes_assigned : classes_assigned ? [classes_assigned] : [];
+    // ✅ Check if user with email already exists in that school
+    const existingUser = await schoolDb.collection('users').findOne({ email });
+    if (existingUser) {
+      return res.status(400).json({ detail: 'A user with this email already exists in this school' });
+    }
 
+    // ✅ Create new user in school DB (without password)
+    const newUser = {
+      id: uuidv4(),
+      name,
+      email,
+      role: 'teacher',
+      school_id: school.id,
+      is_active: true,
+      password: null, // can be set later
+      created_at: new Date().toISOString(),
+      updated_at: new Date().toISOString(),
+    };
+
+    await schoolDb.collection('users').insertOne(newUser);
+
+    // ✅ Prepare subjects/classes arrays
+    const subjectsArray = Array.isArray(subjects) ? subjects : subjects ? [subjects] : [];
+    const classesArray = Array.isArray(classes_assigned)
+      ? classes_assigned
+      : classes_assigned
+      ? [classes_assigned]
+      : [];
+
+    // ✅ Create teacher profile (linked with user_id)
     const teacher = {
       id: uuidv4(),
-      user_id: user_id || null,
+      user_id: newUser.id,
       name,
+      email,
       subjects: subjectsArray,
       classes_assigned: classesArray,
       fee_status: fee_status || 'Pending',
@@ -40,12 +67,18 @@ async function createTeacher(req, res) {
     };
 
     await schoolDb.collection('teachers').insertOne(teacher);
-    res.json({ message: 'Teacher profile created successfully', teacher });
+
+    res.json({
+      message: 'Teacher and user created successfully in school database',
+      teacher,
+      user: newUser,
+    });
   } catch (err) {
     console.error('createTeacher error', err);
     res.status(500).json({ detail: 'Internal server error' });
   }
 }
+
 
 
 // -------------------------

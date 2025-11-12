@@ -61,8 +61,15 @@ export const feesApi = {
 
 
 export const announcementsApi = {
-  getAll: () => api.get('/announcements'),
-  create: (data) => api.post('/announcements', data)
+  getAll: (params) => api.get('/announcements', { params }),
+  create: (data) => api.post('/announcements', data),
+  update: (id, data) => api.put(`/announcements/${id}`, data),
+  delete: (id) => api.delete(`/announcements/${id}`),
+  getUnreadCount: () => api.get('/announcements/unread-count'),
+  markAsRead: (id) => api.post(`/announcements/${id}/mark-read`),
+
+  // ✅ add this new one
+  markAllAsRead: () => api.post('/announcements/mark-all-read'),
 };
 
 export const libraryApi = {
@@ -88,7 +95,7 @@ export const staffApi = {
 };
 
 export const dashboardApi = {
-  getStats: () => api.get('/dashboard/stats')
+  getStats: (params = {}) => api.get('/dashboard/stats', { params }),
 };
 
 // ✅ Teachers API

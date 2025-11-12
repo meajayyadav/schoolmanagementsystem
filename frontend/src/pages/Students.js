@@ -131,14 +131,21 @@ useEffect(() => {
     if (user?.role === 'super_admin') loadSchools();
   }, []);
 
-  useEffect(() => {
-  if (
-    user?.role === 'school_admin' ||
-    (user?.role === 'super_admin' && selectedSchoolCode)
-  ) {
+// ✅ Load students automatically for school_admin or teacher at first load
+useEffect(() => {
+  if (user?.role === 'school_admin' || user?.role === 'teacher') {
     loadStudents();
   }
-}, [selectedSchoolCode, filters.page, filters.limit, filters.name, filters.roll_number]);
+}, [user]);
+
+// ✅ For super_admin, load only when a school is selected
+useEffect(() => {
+  if (user?.role === 'super_admin' && selectedSchoolCode) {
+    loadStudents();
+  }
+}, [selectedSchoolCode]);
+
+
 useEffect(() => {
   if (
     user?.role === 'school_admin' ||
@@ -292,9 +299,9 @@ const handleEdit = (student) => {
     });
     setImageFile(null);
   };
-const getClassName = (id) => {
-  return classes.find((cls) => cls.id === id)?.name || '-';
-};
+// const getClassName = (id) => {
+//   return classes.find((cls) => cls.id === id)?.name || '-';
+// };
 const navigate = useNavigate();//navigation one page to another
 
 
@@ -347,7 +354,17 @@ const navigate = useNavigate();//navigation one page to another
               </SelectContent>
             </Select>
           )}
-          <Button variant="outline" onClick={loadStudents}>Apply</Button>
+         <Button
+  variant="outline"
+  onClick={() => {
+    // ✅ Reset to page 1 whenever new filters are applied
+    setFilters((prev) => ({ ...prev, page: 1 }));
+    loadStudents();
+  }}
+>
+  Apply
+</Button>
+
           <Button variant="ghost" onClick={() => setFilters({ name: '', roll_number: '', page: 1, limit: 10 })}>
             Clear
           </Button>
@@ -392,7 +409,7 @@ const navigate = useNavigate();//navigation one page to another
             <tr key={s.id} className="border-t hover:bg-gray-50">
               <td className="px-4 py-3">{(filters.page - 1) * filters.limit + index + 1}</td>
               <td className="px-4 py-3">{s.name}</td>
-            <td className="px-4 py-3">{getClassName(s.class_id)}</td>
+            <td className="px-4 py-3">{s.class_name}</td>
 
               <td className="px-4 py-3">{s.roll_number}</td>
               {/* <td className="px-4 py-3">{s.grade_level}</td> */}

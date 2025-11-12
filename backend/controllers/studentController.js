@@ -149,6 +149,10 @@ async function deleteStudent(req, res) {
  * List students
  * GET /api/students
  */
+/**
+ * List students
+ * GET /api/students
+ */
 async function listStudents(req, res) {
   try {
     const user = req.user;
@@ -165,30 +169,75 @@ async function listStudents(req, res) {
     const school = await centralDb.collection('schools').findOne({
       $or: [{ id: schoolIdOrCode }, { code: schoolIdOrCode }],
     });
-    if (!school) {
-      return res.status(404).json({ detail: 'School not found' });
-    }
+    if (!school) return res.status(404).json({ detail: 'School not found' });
 
     const schoolDb = getSchoolDbByName(school.db_name);
-
-    // 🟢 SAFE FILTER SECTION (add this)
     const filter = {};
-    if (req.query.class_id) {
-      filter.class_id = req.query.class_id;
+
+    // ✅ TEACHER: restrict to assigned classes only
+    if (user.role === 'teacher') {
+      const teacher = await schoolDb.collection('teachers').findOne({ user_id: user.id });
+      if (!teacher) {
+        return res.status(403).json({ detail: 'No teacher profile found for your account' });
+      }
+
+      if (!teacher.classes_assigned || teacher.classes_assigned.length === 0) {
+        return res.json({ data: [], detail: 'No classes assigned to your account' });
+      }
+
+      // ✅ Convert teacher's assigned class names → class IDs
+      const classRecords = await schoolDb.collection('classes')
+        .find({ name: { $in: teacher.classes_assigned } })
+        .project({ id: 1 })
+        .toArray();
+
+      const classIds = classRecords.map(cls => cls.id);
+
+      if (classIds.length === 0) {
+        return res.json({ data: [], detail: 'No matching classes found for your account' });
+      }
+
+      // ✅ Filter students by matching class_id
+      filter.class_id = { $in: classIds };
     }
 
-    // Optional: filter by student_id or search by name
+    // ✅ Optional filters
+    if (req.query.class_id) filter.class_id = req.query.class_id;
     if (req.query.student_id) filter.id = req.query.student_id;
     if (req.query.name) filter.name = new RegExp(req.query.name, 'i');
 
+    // ✅ Fetch all students
     const students = await schoolDb.collection('students').find(filter).toArray();
 
-    return res.json({ data: students });
+    if (students.length === 0) {
+      return res.json({ data: [] });
+    }
+
+    // ✅ Fetch related class details (names)
+    const classIds = [...new Set(students.map(s => s.class_id).filter(Boolean))];
+    const classes = await schoolDb
+      .collection('classes')
+      .find({ id: { $in: classIds } })
+      .project({ id: 1, name: 1 })
+      .toArray();
+
+    const classMap = Object.fromEntries(classes.map(c => [c.id, c.name]));
+
+    // ✅ Append class_name field to each student
+    const enrichedStudents = students.map(s => ({
+      ...s,
+      class_name: classMap[s.class_id] || 'Unknown',
+    }));
+
+    return res.json({ data: enrichedStudents });
   } catch (err) {
     console.error('listStudents error:', err);
     res.status(500).json({ detail: 'Failed to load students' });
   }
 }
+
+
+
 
 
 /**

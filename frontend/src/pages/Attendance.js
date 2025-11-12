@@ -33,7 +33,7 @@ export default function Attendance() {
 
   // Load classes
   useEffect(() => {
-    if (user.role === 'school_admin' || (user.role === 'super_admin' && selectedSchool)) {
+    if (user.role === 'school_admin' || user.role === 'teacher' || (user.role === 'super_admin' && selectedSchool)) {
       loadClasses();
     }
   }, [selectedSchool, user]);

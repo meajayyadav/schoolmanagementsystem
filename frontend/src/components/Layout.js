@@ -6,12 +6,32 @@ import {
   Library, FileText, Award, Briefcase, User, LogOut, Menu, X
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
-import { useState } from 'react';
+import { useState,useEffect } from 'react';
+
+import { announcementsApi } from '@/api';
 
 export default function Layout({ children }) {
   const { user, logout } = useAuth();
   const location = useLocation();
   const [sidebarOpen, setSidebarOpen] = useState(false);
+const [unreadCount, setUnreadCount] = useState(0);
+
+useEffect(() => {
+  const loadUnreadCount = async () => {
+    try {
+      const res = await announcementsApi.getUnreadCount();
+      setUnreadCount(res.data.count || 0);
+    } catch (err) {
+      console.error('Failed to fetch unread count', err);
+    }
+  };
+
+  if (user && ['teacher', 'student', 'parent'].includes(user.role)) {
+    loadUnreadCount();
+    const interval = setInterval(loadUnreadCount, 60000); // refresh every 1 min
+    return () => clearInterval(interval);
+  }
+}, [user]);
 
   const navigation = [
     { name: 'Dashboard', path: '/dashboard', icon: Home, roles: ['super_admin', 'school_admin', 'teacher', 'student', 'parent'] },
@@ -19,7 +39,7 @@ export default function Layout({ children }) {
     { name: 'All Schools', path: '/schools', icon: School, roles: ['super_admin'] },
     { name: 'All Students', path: '/students', icon: Users, roles: ['super_admin', 'school_admin', 'teacher', 'parent'] },
     { name: 'Teachers', path: '/teachers', icon: GraduationCap, roles: ['super_admin', 'school_admin'] },
-    { name: 'Classes', path: '/classes', icon: BookOpen, roles: ['super_admin', 'school_admin', 'teacher'] },
+    { name: 'Classes', path: '/classes', icon: BookOpen, roles: ['super_admin', 'school_admin'] },
     { name: 'Attendance', path: '/attendance', icon: ClipboardCheck, roles: ['super_admin', 'school_admin', 'teacher'] },
     { name: 'Grades', path: '/grades', icon: TrendingUp, roles: ['super_admin', 'school_admin', 'teacher', 'parent'] },
     { name: 'Timetable', path: '/timetable', icon: Clock, roles: ['super_admin', 'school_admin', 'teacher', 'student'] },
@@ -59,23 +79,34 @@ export default function Layout({ children }) {
         </div>
 
         <nav className="flex-1 py-6 overflow-y-auto">
-          {filteredNav.map((item) => {
-            const Icon = item.icon;
-            const isActive = location.pathname === item.path;
-            return (
-              <Link
-                key={item.path}
-                to={item.path}
-                className={`sidebar-link flex items-center gap-3 px-6 py-2.5 text-sm transition-colors
-                ${isActive ? 'bg-blue-600 text-white' : 'text-gray-300 hover:bg-blue-800 hover:text-white'}`}
-                onClick={() => setSidebarOpen(false)}
-              >
-                <Icon size={20} />
-                <span>{item.name}</span>
-              </Link>
-            );
-          })}
-        </nav>
+  {filteredNav.map((item) => {
+    const Icon = item.icon;
+    const isActive = location.pathname === item.path;
+
+    return (
+      <Link
+        key={item.path}
+        to={item.path}
+        className={`sidebar-link flex items-center gap-3 px-6 py-2.5 text-sm transition-colors
+        ${isActive ? 'bg-blue-600 text-white' : 'text-gray-300 hover:bg-blue-800 hover:text-white'}`}
+        onClick={() => setSidebarOpen(false)}
+      >
+        {/* --- Bell icon with unread badge --- */}
+        <div className="relative">
+          <Icon size={20} />
+          {item.name === 'Announcements' && unreadCount > 0 && (
+            <span className="absolute -top-2 -right-2 bg-red-500 text-white text-xs rounded-full px-1.5">
+              {unreadCount}
+            </span>
+          )}
+        </div>
+
+        <span>{item.name}</span>
+      </Link>
+    );
+  })}
+</nav>
+
 
         <div className="p-4 border-t border-white/10">
           <Link

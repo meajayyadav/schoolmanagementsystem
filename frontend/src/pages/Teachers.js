@@ -101,13 +101,15 @@ export default function Teachers() {
   const [editing, setEditing] = useState(null);
 
   const [formData, setFormData] = useState({
-    name: '',
-    subjects: [],
-    classes_assigned: [],
-    fee_status: 'Pending',
-    is_active: true,
-    school_id: '',
-  });
+  name: '',
+  email: '',
+  subjects: [],
+  classes_assigned: [],
+  fee_status: 'Pending',
+  is_active: true,
+  school_id: '',
+});
+
 
   const [filters, setFilters] = useState({
     name: '',
@@ -250,6 +252,7 @@ export default function Teachers() {
   const resetForm = () => {
     setFormData({
       name: '',
+      email:'',
       subjects: [],
       classes_assigned: [],
       fee_status: 'Pending',
@@ -501,14 +504,25 @@ export default function Teachers() {
                 </Select>
               )}
 
-              <Input
-                placeholder="Full Name"
-                value={formData.name}
-                onChange={(e) =>
-                  setFormData({ ...formData, name: e.target.value })
-                }
-                required
-              />
+              {/* Name */}
+<label className="text-sm font-medium text-gray-700">Full Name</label>
+<Input
+  placeholder="Full Name"
+  value={formData.name}
+  onChange={(e) => setFormData({ ...formData, name: e.target.value })}
+  required
+/>
+
+{/* Email */}
+<label className="text-sm font-medium text-gray-700">Email Address</label>
+<Input
+  type="email"
+  placeholder="Email Address"
+  value={formData.email}
+  onChange={(e) => setFormData({ ...formData, email: e.target.value })}
+  required
+/>
+
 
               <MultiSelect
                 options={subjects.map((s) => ({

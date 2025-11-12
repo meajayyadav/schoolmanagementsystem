@@ -27,6 +27,7 @@ export default function Admission() {
   const [loading, setLoading] = useState(false);
   const [imageFile, setImageFile] = useState(null);
   const [isEditMode, setIsEditMode] = useState(!!editingStudent);
+const [validationErrors, setValidationErrors] = useState({});
 
   const [form, setForm] = useState({
     name: "",
@@ -95,37 +96,70 @@ export default function Admission() {
 
   const handleChange = (field, value) => {
     setForm((prev) => ({ ...prev, [field]: value }));
+// ✅ Remove validation error for this field when user fills it
+    setValidationErrors((prev) => {
+    const updated = { ...prev };
+    if (value && updated[field]) delete updated[field];
+    return updated;
+  });
   };
 
-  const handleSubmit = async (e) => {
-    e.preventDefault();
-    const fd = new FormData();
-    Object.entries(form).forEach(([k, v]) => v && fd.append(k, v));
-    if (imageFile) fd.append("picture", imageFile);
+const handleSubmit = async (e) => {
+  e.preventDefault();
 
-    try {
-      setLoading(true);
+  const requiredFields = {
+    name: "Student Name",
+    father_name: "Father's Name",
+    roll_number: "Roll Number",
+    date_of_birth: "Date of Birth",
+    class_id: "Class",
+    class_section: "Section",
+    enrollment_date: "Admission Date",
+  };
 
-      if (isEditMode) {
-        // ✅ Update existing student
-        await studentsApi.update(editingStudent.id, fd);
-        toast.success("Student updated successfully!");
-      } else {
-        // ✅ Create new student
-        if (user.role === "super_admin" && !form.school_id)
-          return toast.error("Please select a school");
+  const errors = {};
 
-        await studentsApi.create(fd);
-        toast.success("Student admitted successfully!");
-      }
+  // Find first missing field
+  const firstMissingField = Object.entries(requiredFields).find(
+    ([key]) => !form[key]
+  );
 
-      navigate("/students"); // ✅ Redirect back
-    } catch (err) {
-      toast.error(err.response?.data?.detail || "Failed to save student");
-    } finally {
-      setLoading(false);
+  if (firstMissingField) {
+    const [key, label] = firstMissingField;
+    errors[key] = true;
+    setValidationErrors(errors);
+    toast.error(`${label} is required`);
+    return;
+  }
+
+  setValidationErrors({}); // clear previous errors
+
+  const fd = new FormData();
+  Object.entries(form).forEach(([k, v]) => v && fd.append(k, v));
+  if (imageFile) fd.append("picture", imageFile);
+
+  try {
+    setLoading(true);
+
+    if (isEditMode) {
+      await studentsApi.update(editingStudent.id, fd);
+      toast.success("Student updated successfully!");
+    } else {
+      if (user.role === "super_admin" && !form.school_id)
+        return toast.error("Please select a school before admitting a student");
+
+      await studentsApi.create(fd);
+      toast.success("Student admitted successfully!");
     }
-  };
+
+    navigate("/students");
+  } catch (err) {
+    toast.error(err.response?.data?.detail || "Failed to save student");
+  } finally {
+    setLoading(false);
+  }
+};
+
 
   return (
     <Layout>
@@ -142,21 +176,19 @@ export default function Admission() {
         </div>
 
         <div className="card">
-          <form
-  onSubmit={handleSubmit}
-  className="grid grid-cols-1 md:grid-cols-2 gap-6"
->
+    <form onSubmit={handleSubmit} className="grid grid-cols-1 md:grid-cols-2 gap-6">
+
   {/* ✅ School (only for Super Admin) */}
   {user?.role === "super_admin" && (
-    <div>
-      <label className="text-sm font-medium text-gray-700 mb-1 block">
+    <div className="mb-4">
+      <label className="block text-sm font-medium text-gray-700 mb-1">
         School
       </label>
       <Select
         value={form.school_id}
         onValueChange={(val) => handleChange("school_id", val)}
       >
-        <SelectTrigger>
+        <SelectTrigger className={validationErrors.school_id ? "border-red-500" : ""}>
           <SelectValue placeholder="Select School" />
         </SelectTrigger>
         <SelectContent>
@@ -171,57 +203,60 @@ export default function Admission() {
   )}
 
   {/* ✅ Student Name */}
-  <div>
-    <label className="text-sm font-medium text-gray-700 mb-1 block">
-      Student Name
+  <div className="mb-4">
+    <label className="block text-sm font-medium text-gray-700 mb-1">
+      Student Name <span className="text-red-500">*</span>
     </label>
     <Input
       value={form.name}
       onChange={(e) => handleChange("name", e.target.value)}
       placeholder="Enter full name"
-      required
+      className={validationErrors.name ? "border-red-500" : ""}
     />
   </div>
 
   {/* ✅ Father's Name */}
-  <div>
-    <label className="text-sm font-medium text-gray-700 mb-1 block">
-      Father's Name
+  <div className="mb-4">
+    <label className="block text-sm font-medium text-gray-700 mb-1">
+      Father's Name <span className="text-red-500">*</span>
     </label>
     <Input
       value={form.father_name}
       onChange={(e) => handleChange("father_name", e.target.value)}
       placeholder="Enter father's name"
+      className={validationErrors.father_name ? "border-red-500" : ""}
     />
   </div>
 
   {/* ✅ Roll Number */}
-  <div>
-    <label className="text-sm font-medium text-gray-700 mb-1 block">
-      Roll Number
+  <div className="mb-4">
+    <label className="block text-sm font-medium text-gray-700 mb-1">
+      Roll Number <span className="text-red-500">*</span>
     </label>
     <Input
       value={form.roll_number}
       onChange={(e) => handleChange("roll_number", e.target.value)}
       placeholder="e.g., 101"
+      className={validationErrors.roll_number ? "border-red-500" : ""}
     />
   </div>
 
   {/* ✅ Date of Birth */}
-  <div>
-    <label className="text-sm font-medium text-gray-700 mb-1 block">
-      Date of Birth
+  <div className="mb-4">
+    <label className="block text-sm font-medium text-gray-700 mb-1">
+      Date of Birth <span className="text-red-500">*</span>
     </label>
     <Input
       type="date"
       value={form.date_of_birth}
       onChange={(e) => handleChange("date_of_birth", e.target.value)}
+      className={validationErrors.date_of_birth ? "border-red-500" : ""}
     />
   </div>
 
   {/* ✅ Grade */}
-  <div>
-    <label className="text-sm font-medium text-gray-700 mb-1 block">
+  <div className="mb-4">
+    <label className="block text-sm font-medium text-gray-700 mb-1">
       Grade / Level
     </label>
     <Input
@@ -232,15 +267,15 @@ export default function Admission() {
   </div>
 
   {/* ✅ Class */}
-  <div>
-    <label className="text-sm font-medium text-gray-700 mb-1 block">
-      Class
+  <div className="mb-4">
+    <label className="block text-sm font-medium text-gray-700 mb-1">
+      Class <span className="text-red-500">*</span>
     </label>
     <Select
       value={form.class_id}
       onValueChange={(val) => handleChange("class_id", val)}
     >
-      <SelectTrigger>
+      <SelectTrigger className={validationErrors.class_id ? "border-red-500" : ""}>
         <SelectValue placeholder="Select Class" />
       </SelectTrigger>
       <SelectContent>
@@ -254,32 +289,34 @@ export default function Admission() {
   </div>
 
   {/* ✅ Section */}
-  <div>
-    <label className="text-sm font-medium text-gray-700 mb-1 block">
-      Section
+  <div className="mb-4">
+    <label className="block text-sm font-medium text-gray-700 mb-1">
+      Section <span className="text-red-500">*</span>
     </label>
     <Input
       value={form.class_section}
       onChange={(e) => handleChange("class_section", e.target.value)}
       placeholder="e.g., A"
+      className={validationErrors.class_section ? "border-red-500" : ""}
     />
   </div>
 
-  {/* ✅ Enrollment Date */}
-  <div>
-    <label className="text-sm font-medium text-gray-700 mb-1 block">
-      Enrollment Date
+  {/* ✅ Admission Date */}
+  <div className="mb-4">
+    <label className="block text-sm font-medium text-gray-700 mb-1">
+      Admission Date <span className="text-red-500">*</span>
     </label>
     <Input
       type="date"
       value={form.enrollment_date}
       onChange={(e) => handleChange("enrollment_date", e.target.value)}
+      className={validationErrors.enrollment_date ? "border-red-500" : ""}
     />
   </div>
 
   {/* ✅ Profile Picture */}
-  <div>
-    <label className="text-sm font-medium text-gray-700 mb-1 block">
+  <div className="mb-4">
+    <label className="block text-sm font-medium text-gray-700 mb-1">
       Profile Picture
     </label>
     <Input
@@ -289,7 +326,7 @@ export default function Admission() {
     />
   </div>
 
-  {/* ✅ Submit Button */}
+  {/* ✅ Submit */}
   <div className="md:col-span-2 flex justify-end mt-4">
     <Button type="submit" disabled={loading}>
       {loading
@@ -302,6 +339,7 @@ export default function Admission() {
     </Button>
   </div>
 </form>
+
 
         </div>
       </div>
