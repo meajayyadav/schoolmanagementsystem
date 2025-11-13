@@ -173,7 +173,9 @@ async function listStudents(req, res) {
 
     const schoolDb = getSchoolDbByName(school.db_name);
     const filter = {};
-
+if (req.query.class_id) {
+      filter.class_id = req.query.class_id;
+}
     // ✅ TEACHER: restrict to assigned classes only
     if (user.role === 'teacher') {
       const teacher = await schoolDb.collection('teachers').findOne({ user_id: user.id });
