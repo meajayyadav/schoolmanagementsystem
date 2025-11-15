@@ -317,9 +317,12 @@ const navigate = useNavigate();//navigation one page to another
           {/* <Button onClick={() => setShowDialog(true)}>
             <Plus size={20} className="mr-2" /> Add Student
           </Button> */}
-          <Button onClick={() => navigate('/admission')}>
+          {user.role === 'super_admin' || user.role === 'school_admin' &&(
+<Button onClick={() => navigate('/admission')}>
   <Plus size={20} className="mr-2" /> Add Student
 </Button>
+          )}
+          
 
         </div>
 
@@ -427,9 +430,12 @@ const navigate = useNavigate();//navigation one page to another
                     </Button>
                   </DropdownMenuTrigger>
                   <DropdownMenuContent align="end">
+                    {user.role === 'super_admin' || user.role === 'school_admin'&&(
                     <DropdownMenuItem onClick={() => handleEdit(s)}>
                       <Pencil className="mr-2 h-4 w-4" /> Edit
                     </DropdownMenuItem>
+                    )}
+                    
                     <DropdownMenuItem
                       onClick={() => {
                         setSelectedStudent(s);
@@ -438,12 +444,15 @@ const navigate = useNavigate();//navigation one page to another
                     >
                       <Printer className="mr-2 h-4 w-4" /> Print ID Card
                     </DropdownMenuItem>
-                    <DropdownMenuItem
+                    {user.role === 'super_admin' || user.role === 'school_admin'&&(
+                  <DropdownMenuItem
                       onClick={() => handleDelete(s.id)}
                       className="text-red-600"
                     >
                       <Trash className="mr-2 h-4 w-4" /> Delete
                     </DropdownMenuItem>
+                    )}
+                    
                   </DropdownMenuContent>
                 </DropdownMenu>
               </td>

@@ -2,23 +2,30 @@
 const express = require('express');
 const router = express.Router();
 const { requireAuthMiddleware } = require('../middleware/auth');
+
 const {
   addBook,
   getBooks,
+  getBookById,
+  updateBook,
+  deleteBook,
   issueBook,
+  returnBook,
+  getAllLoans,
   getStudentLoans,
 } = require('../controllers/libraryController');
 
-// 📚 Add a new book
+// BOOKS
 router.post('/books', requireAuthMiddleware, addBook);
-
-// 📖 Get all books
 router.get('/books', requireAuthMiddleware, getBooks);
+router.get('/books/:id', requireAuthMiddleware, getBookById);
+router.put('/books/:id', requireAuthMiddleware, updateBook);
+router.delete('/books/:id', requireAuthMiddleware, deleteBook);
 
-// 🧾 Issue a book
+// LOANS
 router.post('/loans', requireAuthMiddleware, issueBook);
-
-// 👩‍🎓 Get a student's loans
+router.put('/loans/:id/return', requireAuthMiddleware, returnBook);
+router.get('/loans', requireAuthMiddleware, getAllLoans);
 router.get('/loans/student/:student_id', requireAuthMiddleware, getStudentLoans);
 
 module.exports = router;

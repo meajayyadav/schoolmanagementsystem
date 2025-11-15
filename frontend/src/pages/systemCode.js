@@ -306,7 +306,7 @@ export default function SystemCodes() {
                 <Input
                   placeholder="System Code ID"
                   value={form.code}
-                  disabled={!!editing}
+                  // disabled={!!editing}
                   onChange={(e) => setForm({ ...form, code: e.target.value })}
                 />
                 <Input

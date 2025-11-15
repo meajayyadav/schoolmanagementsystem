@@ -39,9 +39,26 @@ export const gradesApi = {
 
 
 export const timetableApi = {
-  getAll: () => api.get('/timetable'), // 🆕 super admin
+  // 🆕 super admin - get all timetables across all schools
+  getAll: () => api.get('/timetable'),
+  
+  // Get timetable for specific class
   getByClass: (classId, params = {}) => api.get(`/timetable/class/${classId}`, { params }),
+  
+  // Get single timetable entry by ID
+  getById: (id, params = {}) => api.get(`/timetable/${id}`, { params }),
+  
+  // Create new timetable entry
   create: (data) => api.post('/timetable', data),
+  
+  // Update existing timetable entry
+  update: (id, data) => api.put(`/timetable/${id}`, data),
+  
+  // Delete timetable entry
+  delete: (id, params = {}) => api.delete(`/timetable/${id}`, { params }),
+  
+  // Filter timetable entries by multiple criteria
+  filter: (params = {}) => api.get('/timetable/filter', { params }),
 };
 
 
@@ -73,11 +90,51 @@ export const announcementsApi = {
 };
 
 export const libraryApi = {
-  getBooks: () => api.get('/library/books'),
-  addBook: (data) => api.post('/library/books', data),
-  issueBook: (data) => api.post('/library/loans', data),
-  getStudentLoans: (studentId) => api.get(`/library/loans/student/${studentId}`)
-};
+  // Get books - with school_id for super admin
+  getBooks: (params = {}) => {
+    return api.get('/library/books', { params });
+  },
+
+  // Add book - with school_id for super admin
+  addBook: (data) => {
+    return api.post('/library/books', data);
+  },
+
+  // Update book
+  updateBook: (id, data) => {
+    return api.put(`/library/books/${id}`, data);
+  },
+
+  // Delete book
+  deleteBook: (id) => {
+    return api.delete(`/library/books/${id}`);
+  },
+
+  // Get all loans - with school_id for super admin
+  getAllLoans: (params = {}) => {
+    return api.get('/library/loans', { params });
+  },
+
+  // Get student loans
+  getStudentLoans: (studentId) => {
+    return api.get(`/library/loans/student/${studentId}`);
+  },
+
+  // Issue book
+  issueBook: (data) => {
+    return api.post('/library/loans/issue', data);
+  },
+
+  // Return book
+  returnBook: (loanId) => {
+    return api.put(`/library/loans/${loanId}/return`);
+  },
+
+  // Get overdue loans
+  getOverdueLoans: (params = {}) => {
+    return api.get('/library/loans/overdue', { params });
+  }
+}
 
 export const examsApi = {
   getAll: () => api.get('/exams'),
@@ -150,6 +207,13 @@ export const systemCodesApi = {
   delete: (id) => api.delete(`/system-code/${id}`),
 };
 
-
+export const menusApi = {
+  getAll: (params = {}) => api.get('/menus', { params }),
+  getMyMenu: () => api.get('/menus/my-menu'),
+  create: (data) => api.post('/menus', data),
+  update: (id, data) => api.put(`/menus/${id}`, data),
+  delete: (id) => api.delete(`/menus/${id}`),
+  reorder: (data) => api.put('/menus/reorder', data)
+};
 
 export default api;

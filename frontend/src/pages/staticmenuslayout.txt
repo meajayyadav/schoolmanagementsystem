@@ -7,33 +7,7 @@ import {
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { useState, useEffect, useRef } from 'react';
-import { announcementsApi, schoolsApi, menusApi } from '@/api';
-
-// Icon mapping for dynamic icons
-const ICON_MAP = {
-  Home: Home,
-  School: School,
-  Users: Users,
-  GraduationCap: GraduationCap,
-  BookOpen: BookOpen,
-  Calendar: Calendar,
-  ClipboardCheck: ClipboardCheck,
-  TrendingUp: TrendingUp,
-  Clock: Clock,
-  DollarSign: DollarSign,
-  Bell: Bell,
-  Library: Library,
-  FileText: FileText,
-  Award: Award,
-  Briefcase: Briefcase,
-  User: User,
-  LogOut: LogOut,
-  Menu: Menu,
-  X: X
-};
-
-// Fallback icon if the icon from API doesn't exist
-const FallbackIcon = Briefcase;
+import { announcementsApi, schoolsApi } from '@/api';
 
 export default function Layout({ children }) {
   const { user, logout } = useAuth();
@@ -47,9 +21,6 @@ export default function Layout({ children }) {
   const [loadingNotifs, setLoadingNotifs] = useState(false);
   const [schoolName, setSchoolName] = useState('');
   const [schoolTagline, setSchoolTagline] = useState('');
-  const [dynamicMenus, setDynamicMenus] = useState([]);
-  const [loadingMenus, setLoadingMenus] = useState(true);
-  const [menuError, setMenuError] = useState(null);
   
   const dropdownRef = useRef(null);
 
@@ -64,64 +35,6 @@ export default function Layout({ children }) {
     document.addEventListener('mousedown', handleClickOutside);
     return () => document.removeEventListener('mousedown', handleClickOutside);
   }, []);
-
-  // Load dynamic menus from API
-  const loadDynamicMenus = async () => {
-    try {
-      setLoadingMenus(true);
-      setMenuError(null);
-      
-      const response = await menusApi.getMyMenu();
-      const menus = response.data.data || [];
-      
-      // Transform API data to match the expected navigation structure
-      const transformedMenus = menus.map(menu => ({
-        name: menu.name,
-        path: menu.path,
-        icon: menu.icon,
-        roles: menu.roles || [],
-        order: menu.order || 0,
-        is_active: menu.is_active !== false // Default to true if not specified
-      })).filter(menu => menu.is_active); // Only include active menus
-      
-      setDynamicMenus(transformedMenus);
-    } catch (error) {
-      console.error('Failed to load dynamic menus:', error);
-      setMenuError('Failed to load navigation menus');
-      
-      // Fallback to static menus if dynamic loading fails
-      const staticNavigation = getStaticNavigation();
-      const filteredStaticNav = staticNavigation.filter(item => 
-        item.roles.includes(user?.role)
-      );
-      setDynamicMenus(filteredStaticNav);
-    } finally {
-      setLoadingMenus(false);
-    }
-  };
-
-  // Static navigation fallback
-  const getStaticNavigation = () => [
-    { name: 'Dashboard', path: '/dashboard', icon: 'Home', roles: ['super_admin', 'school_admin', 'teacher', 'student', 'parent'] },
-    { name: 'Admission', path: '/admission', icon: 'ClipboardCheck', roles: ['super_admin', 'school_admin'] },
-    { name: 'All Schools', path: '/schools', icon: 'School', roles: ['super_admin'] },
-    { name: 'My Students', path: '/students', icon: 'Users', roles: ['super_admin', 'school_admin', 'teacher', 'parent'] },
-    { name: 'Teachers', path: '/teachers', icon: 'GraduationCap', roles: ['super_admin', 'school_admin'] },
-    { name: 'Classes', path: '/classes', icon: 'BookOpen', roles: ['super_admin', 'school_admin'] },
-    { name: 'Attendance', path: '/attendance', icon: 'ClipboardCheck', roles: ['super_admin', 'school_admin', 'teacher'] },
-    { name: 'Grades', path: '/grades', icon: 'TrendingUp', roles: ['super_admin', 'school_admin', 'teacher', 'parent'] },
-    { name: 'Timetable', path: '/timetable', icon: 'Clock', roles: ['super_admin', 'school_admin', 'teacher', 'student'] },
-    { name: 'Fees', path: '/fees', icon: 'DollarSign', roles: ['super_admin', 'school_admin', 'parent'] },
-    { name: 'Announcements', path: '/announcements', icon: 'Bell', roles: ['super_admin'] },
-    { name: 'Library', path: '/library', icon: 'Library', roles: ['super_admin', 'school_admin', 'student'] },
-    { name: 'Exams', path: '/exams', icon: 'FileText', roles: ['super_admin', 'school_admin', 'teacher', 'student'] },
-    { name: 'Report Cards', path: '/report-cards', icon: 'Award', roles: ['super_admin', 'school_admin', 'teacher', 'parent'] },
-    { name: 'Staff', path: '/staff', icon: 'Briefcase', roles: ['super_admin', 'school_admin'] },
-    { name: 'All Users', path: '/users', icon: 'Briefcase', roles: ['super_admin', 'school_admin'] },
-    { name: 'Subject', path: '/subject', icon: 'Briefcase', roles: ['super_admin', 'school_admin'] },
-    { name: 'SystemCode', path: '/systemcode', icon: 'Briefcase', roles: ['super_admin'] },
-    { name: 'MenuManagement', path: '/menus', icon: 'Briefcase', roles: ['super_admin'] }
-  ];
 
   // Load school data based on user's school_id
   useEffect(() => {
@@ -159,13 +72,6 @@ export default function Layout({ children }) {
 
     if (user) {
       fetchSchoolData();
-    }
-  }, [user]);
-
-  // Load dynamic menus when user changes
-  useEffect(() => {
-    if (user) {
-      loadDynamicMenus();
     }
   }, [user]);
 
@@ -278,14 +184,29 @@ export default function Layout({ children }) {
     setShowNotifDropdown(!showNotifDropdown);
   };
 
-  // Get icon component based on icon name from API
-  const getIconComponent = (iconName) => {
-    const IconComponent = ICON_MAP[iconName];
-    return IconComponent || FallbackIcon;
-  };
+  const navigation = [
+    { name: 'Dashboard', path: '/dashboard', icon: Home, roles: ['super_admin', 'school_admin', 'teacher', 'student', 'parent'] },
+    { name: 'Admission', path: '/admission', icon: ClipboardCheck, roles: ['super_admin', 'school_admin'] },
+    { name: 'All Schools', path: '/schools', icon: School, roles: ['super_admin'] },
+    { name: 'My Students', path: '/students', icon: Users, roles: ['super_admin', 'school_admin', 'teacher', 'parent'] },
+    { name: 'Teachers', path: '/teachers', icon: GraduationCap, roles: ['super_admin', 'school_admin'] },
+    { name: 'Classes', path: '/classes', icon: BookOpen, roles: ['super_admin', 'school_admin'] },
+    { name: 'Attendance', path: '/attendance', icon: ClipboardCheck, roles: ['super_admin', 'school_admin', 'teacher'] },
+    { name: 'Grades', path: '/grades', icon: TrendingUp, roles: ['super_admin', 'school_admin', 'teacher', 'parent'] },
+    { name: 'Timetable', path: '/timetable', icon: Clock, roles: ['super_admin', 'school_admin', 'teacher', 'student'] },
+    { name: 'Fees', path: '/fees', icon: DollarSign, roles: ['super_admin', 'school_admin', 'parent'] },
+    { name: 'Announcements', path: '/announcements', icon: Bell, roles: ['super_admin'] },
+    { name: 'Library', path: '/library', icon: Library, roles: ['super_admin', 'school_admin', 'student'] },
+    { name: 'Exams', path: '/exams', icon: FileText, roles: ['super_admin', 'school_admin', 'teacher', 'student'] },
+    { name: 'Report Cards', path: '/report-cards', icon: Award, roles: ['super_admin', 'school_admin', 'teacher', 'parent'] },
+    { name: 'Staff', path: '/staff', icon: Briefcase, roles: ['super_admin', 'school_admin'] },
+    { name: 'All Users', path: '/users', icon: Briefcase, roles: ['super_admin', 'school_admin'] },
+    { name: 'Subject', path: '/subject', icon: Briefcase, roles: ['super_admin', 'school_admin'] },
+    { name: 'SystemCode', path: '/systemcode', icon: Briefcase, roles: ['super_admin'] },
+    { name: 'MenuManagement', path: '/menus', icon: Briefcase, roles: ['super_admin'] }
+  ];
 
-  // Sort menus by order
-  const sortedMenus = [...dynamicMenus].sort((a, b) => (a.order || 0) - (b.order || 0));
+  const filteredNav = navigation.filter(item => item.roles.includes(user?.role));
 
   return (
     <div className="flex h-screen bg-gray-50">
@@ -311,52 +232,32 @@ export default function Layout({ children }) {
 
         {/* Sidebar Nav */}
         <nav className="flex-1 py-6 overflow-y-auto">
-          {loadingMenus ? (
-            // Loading skeleton for menus
-            <div className="space-y-2 px-6">
-              {[...Array(8)].map((_, index) => (
-                <div key={index} className="flex items-center gap-3 px-3 py-2.5">
-                  <div className="w-5 h-5 bg-gray-700 rounded animate-pulse"></div>
-                  <div className="h-4 bg-gray-700 rounded flex-1 animate-pulse"></div>
-                </div>
-              ))}
-            </div>
-          ) : menuError ? (
-            // Error state
-            <div className="px-6 py-4 text-center">
-              <p className="text-yellow-400 text-sm mb-2">{menuError}</p>
-              <p className="text-gray-400 text-xs">Using fallback navigation</p>
-            </div>
-          ) : (
-            // Dynamic menus
-            sortedMenus.map((item) => {
-              const IconComponent = getIconComponent(item.icon);
-              const isActive = location.pathname === item.path;
+          {filteredNav.map((item) => {
+            const Icon = item.icon;
+            const isActive = location.pathname === item.path;
 
-              return (
-                <Link
-                  key={item.path}
-                  to={item.path}
-                  className={`sidebar-link flex items-center gap-3 px-6 py-2.5 text-sm transition-colors
-                  ${isActive ? 'bg-blue-600 text-white' : 'text-gray-300 hover:bg-blue-800 hover:text-white'}`}
-                  onClick={() => setSidebarOpen(false)}
-                >
-                  <div className="relative">
-                    <IconComponent size={20} />
-                    {item.name === 'Announcements' && unreadCount > 0 && (
-                      <span className="absolute -top-2 -right-2 bg-red-500 text-white text-xs rounded-full px-1.5 min-w-[20px] h-[20px] flex items-center justify-center animate-pulse">
-                        {unreadCount > 99 ? '99+' : unreadCount}
-                      </span>
-                    )}
-                  </div>
-                  <span>{item.name}</span>
-                </Link>
-              );
-            })
-          )}
+            return (
+              <Link
+                key={item.path}
+                to={item.path}
+                className={`sidebar-link flex items-center gap-3 px-6 py-2.5 text-sm transition-colors
+                ${isActive ? 'bg-blue-600 text-white' : 'text-gray-300 hover:bg-blue-800 hover:text-white'}`}
+                onClick={() => setSidebarOpen(false)}
+              >
+                <div className="relative">
+                  <Icon size={20} />
+                  {item.name === 'Announcements' && unreadCount > 0 && (
+                    <span className="absolute -top-2 -right-2 bg-red-500 text-white text-xs rounded-full px-1.5 min-w-[20px] h-[20px] flex items-center justify-center animate-pulse">
+                      {unreadCount > 99 ? '99+' : unreadCount}
+                    </span>
+                  )}
+                </div>
+                <span>{item.name}</span>
+              </Link>
+            );
+          })}
         </nav>
 
-        {/* Fixed bottom items (Profile and Logout) */}
         <div className="p-4 border-t border-white/10">
           <Link
             to="/profile"

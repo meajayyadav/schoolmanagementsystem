@@ -21,6 +21,7 @@ const teacherRoutes = require('./teacherRoutes');
 const userRoutes = require('./userRoutes');
 const subjectRoutes = require('./subjectRoutes');
 const systemCodeRoutes = require('./systemcodeRoutes');
+const menusRoutes = require('./menusRoutes');
 
 // ✅ Mount all route modules
 router.use('/auth', authRoutes);
@@ -41,6 +42,7 @@ router.use('/teachers', teacherRoutes);
 router.use('/users', userRoutes);
 router.use('/subjects', subjectRoutes);
 router.use("/system-code", systemCodeRoutes);
+router.use("/menus", menusRoutes);
 
 
 // ✅ Serve uploaded files globally
