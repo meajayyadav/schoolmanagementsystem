@@ -3,14 +3,18 @@ const express = require('express');
 const router = express.Router();
 const { requireAuthMiddleware } = require('../middleware/auth');
 const {
-  createReportCard,
+  getReportCardFilters,
   getStudentReportCards,
+  generatePdfReportCard
 } = require('../controllers/reportCardController');
 
-// 📝 Create report card
-router.post('/', requireAuthMiddleware, createReportCard);
+// Get filter options
+router.get('/filters', requireAuthMiddleware, getReportCardFilters);
 
-// 👩‍🎓 Get a student's report cards
-router.get('/student/:student_id', requireAuthMiddleware, getStudentReportCards);
+// Get student report cards
+router.get('/students', requireAuthMiddleware, getStudentReportCards);
+
+// Generate PDF report cards
+router.post('/generate-pdf', requireAuthMiddleware, generatePdfReportCard);
 
 module.exports = router;

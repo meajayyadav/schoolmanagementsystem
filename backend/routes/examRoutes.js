@@ -6,6 +6,7 @@ const {
   createExam,
   getExams,
   getExamById,
+  updateExam,
   deleteExam,
 } = require('../controllers/examController');
 
@@ -17,6 +18,9 @@ router.get('/', requireAuthMiddleware, getExams);
 
 // 🔍 Get single exam by ID
 router.get('/:exam_id', requireAuthMiddleware, getExamById);
+
+// ✏️ Update exam
+router.put('/:exam_id', requireAuthMiddleware, updateExam);
 
 // ❌ Delete exam
 router.delete('/:exam_id', requireAuthMiddleware, deleteExam);

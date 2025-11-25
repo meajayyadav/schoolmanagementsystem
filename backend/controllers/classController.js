@@ -9,14 +9,13 @@ const { getCentralDb, getSchoolDbByName } = require('../db');
 async function createClass(req, res) {
   try {
     const user = req.user;
-    const { name, grade, section, subjects = [], school_id } = req.body;
+    const { name, section, subjects = [], admission_fee, monthly_fee, school_id } = req.body;
 
-    if (!name || !grade)
-      return res.status(400).json({ detail: 'Class name and grade are required' });
+    if (!name)
+      return res.status(400).json({ detail: 'Class name is required' });
 
     const centralDb = getCentralDb();
 
-    // 🔒 Determine school target
     let targetSchoolId = user.role === 'super_admin' ? school_id : user.school_id;
     if (!targetSchoolId)
       return res.status(400).json({ detail: 'School ID required' });
@@ -33,9 +32,10 @@ async function createClass(req, res) {
     const classData = {
       id: uuidv4(),
       name,
-      grade,
       section: section || '',
       subjects: Array.isArray(subjects) ? subjects : [],
+      admission_fee: parseFloat(admission_fee) || 0,
+      monthly_fee: parseFloat(monthly_fee) || 0,
       created_at: new Date().toISOString(),
       is_active: true,
     };
@@ -48,7 +48,6 @@ async function createClass(req, res) {
     return res.status(500).json({ detail: 'Internal server error' });
   }
 }
-
 /**
  * List all classes
  * GET /api/classes
@@ -159,7 +158,7 @@ async function updateClass(req, res) {
   try {
     const user = req.user;
     const { class_id } = req.params;
-    const { name, grade, section, subjects, is_active } = req.body;
+    const { name, section, subjects, admission_fee, monthly_fee, is_active } = req.body;
 
     const centralDb = getCentralDb();
     const school = await centralDb.collection('schools').findOne({ id: user.school_id });
@@ -170,9 +169,10 @@ async function updateClass(req, res) {
     const updateData = {};
 
     if (name) updateData.name = name;
-    if (grade) updateData.grade = grade;
     if (section) updateData.section = section;
     if (subjects) updateData.subjects = subjects;
+    if (admission_fee !== undefined) updateData.admission_fee = parseFloat(admission_fee);
+    if (monthly_fee !== undefined) updateData.monthly_fee = parseFloat(monthly_fee);
     if (typeof is_active === 'boolean') updateData.is_active = is_active;
 
     const result = await schoolDb.collection('classes').updateOne({ id: class_id }, { $set: updateData });
@@ -227,12 +227,49 @@ async function deleteClass(req, res) {
     return res.status(500).json({ detail: 'Internal server error' });
   }
 }
+// Add to src/controllers/classController.js
 
+/**
+ * GET /api/classes/school/:school_id
+ * Get classes by school ID (for super admin)
+ */
+async function getClassesBySchool(req, res) {
+  try {
+    const user = req.user;
+    const { school_id } = req.params;
+
+    if (user.role !== 'super_admin') {
+      return res.status(403).json({ detail: 'Access denied: only super admins can access this endpoint' });
+    }
+
+    const centralDb = getCentralDb();
+    const school = await centralDb
+      .collection('schools')
+      .findOne({ 
+        $or: [{ id: school_id }, { code: school_id }]
+      }, { projection: { _id: 0 } });
+
+    if (!school) return res.status(404).json({ detail: 'School not found' });
+
+    const schoolDb = getSchoolDbByName(school.db_name);
+    const classes = await schoolDb
+      .collection('classes')
+      .find({}, { projection: { _id: 0 } })
+      .sort({ name: 1 })
+      .toArray();
+
+    return res.json(classes);
+  } catch (err) {
+    console.error('getClassesBySchool error', err);
+    return res.status(500).json({ detail: 'Internal server error' });
+  }
+}
 module.exports = {
   createClass,
   listClasses,
   getClass,
   updateClass,
   deleteClass,
-  toggleClassStatus
+  toggleClassStatus,
+  getClassesBySchool
 };

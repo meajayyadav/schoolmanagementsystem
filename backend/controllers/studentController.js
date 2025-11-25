@@ -29,6 +29,10 @@ async function createStudent(req, res) {
 
     const picturePath = req.file ? `/uploads/${req.file.filename}` : null;
 
+    // Parse fee fields
+    const admission_fee = req.body.admission_fee ? parseFloat(req.body.admission_fee) : 0;
+    const monthly_fee = req.body.monthly_fee ? parseFloat(req.body.monthly_fee) : 0;
+
     const payload = {
       id: uuidv4(),
       name: req.body.name,
@@ -43,13 +47,16 @@ async function createStudent(req, res) {
       date_of_birth: req.body.date_of_birth
         ? new Date(req.body.date_of_birth).toISOString()
         : null,
+      admission_fee: admission_fee,
+      monthly_fee: monthly_fee,
       picture: picturePath,
       school_id: school.id,
       created_at: new Date().toISOString(),
+      status: 'active'
     };
 
     await schoolDb.collection('students').insertOne(payload);
-    return res.json({ detail: 'Student created successfully', data: payload });
+    return res.json({ detail: 'Student created successfully', student: payload });
   } catch (err) {
     console.error('createStudent error', err);
     return res.status(500).json({ detail: 'Internal server error' });
@@ -84,6 +91,15 @@ async function updateStudent(req, res) {
     if (!existing) return res.status(404).json({ detail: 'Student not found' });
 
     const updateData = { ...req.body };
+    
+    // Handle fee fields
+    if (req.body.admission_fee !== undefined) {
+      updateData.admission_fee = parseFloat(req.body.admission_fee) || 0;
+    }
+    if (req.body.monthly_fee !== undefined) {
+      updateData.monthly_fee = parseFloat(req.body.monthly_fee) || 0;
+    }
+    
     if (req.file) {
       // delete old image
       if (existing.picture) {
@@ -149,10 +165,6 @@ async function deleteStudent(req, res) {
  * List students
  * GET /api/students
  */
-/**
- * List students
- * GET /api/students
- */
 async function listStudents(req, res) {
   try {
     const user = req.user;
@@ -173,9 +185,7 @@ async function listStudents(req, res) {
 
     const schoolDb = getSchoolDbByName(school.db_name);
     const filter = {};
-if (req.query.class_id) {
-      filter.class_id = req.query.class_id;
-}
+
     // ✅ TEACHER: restrict to assigned classes only
     if (user.role === 'teacher') {
       const teacher = await schoolDb.collection('teachers').findOne({ user_id: user.id });
@@ -207,12 +217,29 @@ if (req.query.class_id) {
     if (req.query.class_id) filter.class_id = req.query.class_id;
     if (req.query.student_id) filter.id = req.query.student_id;
     if (req.query.name) filter.name = new RegExp(req.query.name, 'i');
+    if (req.query.roll_number) filter.roll_number = new RegExp(req.query.roll_number, 'i');
 
-    // ✅ Fetch all students
-    const students = await schoolDb.collection('students').find(filter).toArray();
+    // Pagination
+    const page = parseInt(req.query.page) || 1;
+    const limit = parseInt(req.query.limit) || 10;
+    const skip = (page - 1) * limit;
+
+    // ✅ Fetch students with pagination
+    const students = await schoolDb.collection('students')
+      .find(filter)
+      .skip(skip)
+      .limit(limit)
+      .toArray();
+
+    const total = await schoolDb.collection('students').countDocuments(filter);
 
     if (students.length === 0) {
-      return res.json({ data: [] });
+      return res.json({ 
+        data: [],
+        total: 0,
+        page,
+        totalPages: 0
+      });
     }
 
     // ✅ Fetch related class details (names)
@@ -220,27 +247,40 @@ if (req.query.class_id) {
     const classes = await schoolDb
       .collection('classes')
       .find({ id: { $in: classIds } })
-      .project({ id: 1, name: 1 })
+      .project({ id: 1, name: 1, section: 1, admission_fee: 1, monthly_fee: 1 })
       .toArray();
 
-    const classMap = Object.fromEntries(classes.map(c => [c.id, c.name]));
+    const classMap = Object.fromEntries(classes.map(c => [c.id, {
+      name: c.name,
+      section: c.section,
+      admission_fee: c.admission_fee,
+      monthly_fee: c.monthly_fee
+    }]));
 
-    // ✅ Append class_name field to each student
-    const enrichedStudents = students.map(s => ({
-      ...s,
-      class_name: classMap[s.class_id] || 'Unknown',
-    }));
+    // ✅ Append class_name and other class fields to each student
+    const enrichedStudents = students.map(s => {
+      const classInfo = classMap[s.class_id] || { name: 'Unknown', section: '' };
+      return {
+        ...s,
+        class_name: classInfo.name,
+        class_section: s.class_section || classInfo.section,
+        // Use student's fees if available, otherwise fall back to class fees
+        admission_fee: s.admission_fee !== undefined ? s.admission_fee : classInfo.admission_fee,
+        monthly_fee: s.monthly_fee !== undefined ? s.monthly_fee : classInfo.monthly_fee
+      };
+    });
 
-    return res.json({ data: enrichedStudents });
+    return res.json({ 
+      data: enrichedStudents,
+      total,
+      page,
+      totalPages: Math.ceil(total / limit)
+    });
   } catch (err) {
     console.error('listStudents error:', err);
     res.status(500).json({ detail: 'Failed to load students' });
   }
 }
-
-
-
-
 
 /**
  * Get student by ID
@@ -267,6 +307,23 @@ async function getStudent(req, res) {
     const schoolDb = getSchoolDbByName(school.db_name);
     const student = await schoolDb.collection('students').findOne({ id }, { projection: { _id: 0 } });
     if (!student) return res.status(404).json({ detail: 'Student not found' });
+    
+    // Fetch class information if class_id exists
+    if (student.class_id) {
+      const classInfo = await schoolDb.collection('classes').findOne(
+        { id: student.class_id },
+        { projection: { name: 1, section: 1, admission_fee: 1, monthly_fee: 1 } }
+      );
+      
+      if (classInfo) {
+        student.class_name = classInfo.name;
+        student.class_section = student.class_section || classInfo.section;
+        // Use student's fees if available, otherwise fall back to class fees
+        student.admission_fee = student.admission_fee !== undefined ? student.admission_fee : classInfo.admission_fee;
+        student.monthly_fee = student.monthly_fee !== undefined ? student.monthly_fee : classInfo.monthly_fee;
+      }
+    }
+
     return res.json(student);
   } catch (err) {
     console.error('getStudent error', err);
@@ -274,6 +331,40 @@ async function getStudent(req, res) {
   }
 }
 
+/**
+ * Get students by class
+ * GET /api/students/class/:classId
+ */
+async function getStudentsByClass(req, res) {
+  try {
+    const user = req.user;
+    const { classId } = req.params;
+    const { school_id } = req.query;
+    const centralDb = getCentralDb();
+
+    let schoolIdToUse = user.school_id;
+    if (user.role === 'super_admin' && school_id) {
+      schoolIdToUse = school_id;
+    }
+
+    const school = await centralDb.collection('schools').findOne(
+      { $or: [{ id: schoolIdToUse }, { code: schoolIdToUse }] },
+      { projection: { _id: 0 } }
+    );
+    if (!school) return res.status(404).json({ detail: 'School not found' });
+
+    const schoolDb = getSchoolDbByName(school.db_name);
+    
+    const students = await schoolDb.collection('students')
+      .find({ class_id: classId })
+      .toArray();
+
+    return res.json({ data: students });
+  } catch (err) {
+    console.error('getStudentsByClass error', err);
+    return res.status(500).json({ detail: 'Internal server error' });
+  }
+}
 
 module.exports = {
   createStudent,
@@ -281,4 +372,5 @@ module.exports = {
   deleteStudent,
   listStudents,
   getStudent,
+  getStudentsByClass
 };

@@ -68,12 +68,12 @@ exports.getMenus = async (req, res) => {
 exports.getMenuByRole = async (req, res) => {
   try {
     const { user } = req;
-    console.log('Fetching menus for user:', { 
-      id: user.id, 
-      role: user.role, 
-      school_id: user.school_id,
-      school_db_name: user.school_db_name 
-    });
+    // console.log('Fetching menus for user:', { 
+    //   id: user.id, 
+    //   role: user.role, 
+    //   school_id: user.school_id,
+    //   school_db_name: user.school_db_name 
+    // });
 
     let db, menusCollection;
 

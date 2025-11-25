@@ -8,7 +8,8 @@ const {
   getClass,
   updateClass,
   deleteClass,
-  toggleClassStatus
+  toggleClassStatus,
+  getClassesBySchool
 } = require('../controllers/classController');
 
 // CRUD
@@ -18,5 +19,6 @@ router.get('/:class_id', requireAuthMiddleware, getClass);
 router.put('/:class_id', requireAuthMiddleware, updateClass);
 router.delete('/:class_id', requireAuthMiddleware, deleteClass);
 router.put('/:class_id/toggle', requireAuthMiddleware, toggleClassStatus);
+router.get('/school/:school_id', requireAuthMiddleware, getClassesBySchool);
 
 module.exports = router;

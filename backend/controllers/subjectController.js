@@ -109,10 +109,47 @@ async function deleteSubject(req, res) {
     res.status(500).json({ detail: 'Internal server error' });
   }
 }
+// Add to controllers/subjectController.js
 
+/**
+ * GET /api/subjects/school/:school_id
+ * Get subjects by school ID (for super admin)
+ */
+async function getSubjectsBySchool(req, res) {
+  try {
+    const user = req.user;
+    const { school_id } = req.params;
+
+    if (user.role !== 'super_admin') {
+      return res.status(403).json({ detail: 'Access denied: only super admins can access this endpoint' });
+    }
+
+    const centralDb = getCentralDb();
+    const school = await centralDb
+      .collection('schools')
+      .findOne({ 
+        $or: [{ id: school_id }, { code: school_id }]
+      }, { projection: { _id: 0 } });
+
+    if (!school) return res.status(404).json({ detail: 'School not found' });
+
+    const schoolDb = getSchoolDbByName(school.db_name);
+    const subjects = await schoolDb
+      .collection('subjects')
+      .find({}, { projection: { _id: 0 } })
+      .sort({ name: 1 })
+      .toArray();
+
+    return res.json(subjects);
+  } catch (err) {
+    console.error('getSubjectsBySchool error', err);
+    return res.status(500).json({ detail: 'Internal server error' });
+  }
+}
 module.exports = {
   getSubjects,
   createSubject,
   updateSubject,
   deleteSubject,
+  getSubjectsBySchool
 };

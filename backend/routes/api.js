@@ -22,6 +22,10 @@ const userRoutes = require('./userRoutes');
 const subjectRoutes = require('./subjectRoutes');
 const systemCodeRoutes = require('./systemcodeRoutes');
 const menusRoutes = require('./menusRoutes');
+const bulkUploadRoutes = require('./bulkUploadRoutes');
+const examMarksRoutes = require('./examMarksRoutes');
+const feeSlipRoutes = require('./feeSlipRoutes');
+const reportRoutes = require('./reportRoutes');
 
 // ✅ Mount all route modules
 router.use('/auth', authRoutes);
@@ -43,6 +47,10 @@ router.use('/users', userRoutes);
 router.use('/subjects', subjectRoutes);
 router.use("/system-code", systemCodeRoutes);
 router.use("/menus", menusRoutes);
+router.use("/bulkUpload", bulkUploadRoutes);
+router.use("/exam-marks", examMarksRoutes);
+router.use("/fee-slip", feeSlipRoutes);
+router.use("/reports", reportRoutes);
 
 
 // ✅ Serve uploaded files globally
