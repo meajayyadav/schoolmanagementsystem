@@ -1,16 +1,22 @@
 import { useEffect, useState } from 'react';
 import Layout from '@/components/Layout';
-import { classesApi, schoolsApi, subjectsApi,systemCodesApi } from '@/api';
+import { classesApi, schoolsApi, subjectsApi, systemCodesApi } from '@/api';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
+import { Badge } from '@/components/ui/badge';
 import {
   Dialog,
   DialogContent,
   DialogHeader,
   DialogTitle,
 } from '@/components/ui/dialog';
+import {
+  Popover,
+  PopoverContent,
+  PopoverTrigger,
+} from '@/components/ui/popover';
 import { toast } from 'sonner';
-import { Plus, BookOpen, Search } from 'lucide-react';
+import { Plus, BookOpen, Search, MoreVertical, Edit, Trash2 } from 'lucide-react';
 import {
   Select,
   SelectTrigger,
@@ -20,29 +26,89 @@ import {
 } from '@/components/ui/select';
 import { useAuth } from '@/contexts/AuthContext';
 import { Switch } from '@/components/ui/switch';
-import { MultiSelect } from '@/components/ui/multiselect'; // ✅ same multiselect used in Teacher.js
+import { MultiSelect } from '@/components/ui/multiselect';
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from '@/components/ui/dropdown-menu';
+
+// SubjectCell Component
+const SubjectCell = ({ subjects }) => {
+  if (!Array.isArray(subjects) || subjects.length === 0) {
+    return <span className="text-gray-400">-</span>;
+  }
+
+  const displaySubjects = subjects.slice(0, 2);
+  const remainingCount = subjects.length - 2;
+
+  return (
+    <div className="flex flex-wrap gap-1 min-w-[120px]">
+      {displaySubjects.map((subject, index) => (
+        <Badge 
+          key={index} 
+          variant="secondary" 
+          className="text-xs max-w-[100px] truncate px-2 py-1"
+        >
+          {subject}
+        </Badge>
+      ))}
+      
+      {remainingCount > 0 && (
+        <Popover>
+          <PopoverTrigger asChild>
+            <Badge 
+              variant="outline" 
+              className="text-xs cursor-pointer hover:bg-gray-100 px-2 py-1"
+            >
+              +{remainingCount}
+            </Badge>
+          </PopoverTrigger>
+          <PopoverContent className="w-64" align="start">
+            <div className="space-y-2">
+              <h4 className="font-medium text-sm">All Subjects ({subjects.length})</h4>
+              <div className="flex flex-wrap gap-1 max-h-32 overflow-y-auto">
+                {subjects.map((subject, index) => (
+                  <Badge 
+                    key={index} 
+                    variant="secondary" 
+                    className="text-xs mb-1"
+                  >
+                    {subject}
+                  </Badge>
+                ))}
+              </div>
+            </div>
+          </PopoverContent>
+        </Popover>
+      )}
+    </div>
+  );
+};
 
 export default function Classes() {
   const { user } = useAuth();
   const [classes, setClasses] = useState([]);
   const [schools, setSchools] = useState([]);
-  const [subjects, setSubjects] = useState([]); // ✅ subjects list from API
+  const [subjects, setSubjects] = useState([]);
   const [selectedSchoolId, setSelectedSchoolId] = useState('');
   const [loading, setLoading] = useState(false);
   const [showDialog, setShowDialog] = useState(false);
-const [systemClasses, setSystemClasses] = useState([]);
+  const [systemClasses, setSystemClasses] = useState([]);
+  const [editingClass, setEditingClass] = useState(null);
   const [formData, setFormData] = useState({
     name: '',
-    grade: '',
     section: '',
     subjects: [],
+    admission_fee: '',
+    monthly_fee: '',
     is_active: true,
     school_id: '',
   });
 
   const [filters, setFilters] = useState({
     name: '',
-    grade: '',
     section: '',
     page: 1,
     limit: 10,
@@ -52,37 +118,35 @@ const [systemClasses, setSystemClasses] = useState([]);
     total: 0,
     totalPages: 1,
   });
-useEffect(() => {
-  async function fetchSystemCodes() {
-    try {
-      const schoolId =
-        user.role === "super_admin" ? formData.school_id : user.school_id;
-      if (!schoolId) return;
 
-      const res = await systemCodesApi.getAll({ school_id: schoolId });
-      // filter system code group for "CLASS"
-      const classCodes = res.data.filter(
-        (c) => c.code === "CLS" && Array.isArray(c.items)
-      );
+  useEffect(() => {
+    async function fetchSystemCodes() {
+      try {
+        const schoolId =
+          user.role === "super_admin" ? formData.school_id : user.school_id;
+        if (!schoolId) return;
 
-      // Flatten the line items into options
-      const options =
-        classCodes.length > 0 ? classCodes[0].items.map((i) => i.label) : [];
-      setSystemClasses(options);
-    } catch (err) {
-      console.error("❌ Failed to load system codes:", err);
-      toast.error("Failed to load class list from system codes");
+        const res = await systemCodesApi.getAll({ school_id: schoolId });
+        const classCodes = res.data.filter(
+          (c) => c.code === "CLS" && Array.isArray(c.items)
+        );
+
+        const options =
+          classCodes.length > 0 ? classCodes[0].items.map((i) => i.label) : [];
+        setSystemClasses(options);
+      } catch (err) {
+        console.error("❌ Failed to load system codes:", err);
+        toast.error("Failed to load class list from system codes");
+      }
     }
-  }
 
-  fetchSystemCodes();
-}, [formData.school_id, user]);
-  // 🔹 Load schools and subjects for super admin
+    fetchSystemCodes();
+  }, [formData.school_id, user]);
+
   useEffect(() => {
     if (user?.role === 'super_admin') loadSchools();
   }, [user]);
 
-  // 🔹 Load classes when school changes or pagination changes
   useEffect(() => {
     if (
       user?.role === 'school_admin' ||
@@ -97,7 +161,6 @@ useEffect(() => {
     }
   }, [selectedSchoolId, filters.page, user]);
 
-  // ✅ Load schools
   const loadSchools = async () => {
     try {
       const res = await schoolsApi.getAll();
@@ -107,7 +170,6 @@ useEffect(() => {
     }
   };
 
-  // ✅ Load subjects by school
   const loadSubjects = async () => {
     try {
       const schoolId =
@@ -120,13 +182,11 @@ useEffect(() => {
     }
   };
 
-  // ✅ Load classes list
   const loadClasses = async () => {
     try {
       setLoading(true);
       const params = {
         name: filters.name,
-        grade: filters.grade,
         section: filters.section,
         page: filters.page,
         limit: filters.limit,
@@ -153,15 +213,14 @@ useEffect(() => {
     }
   };
 
-  // ✅ Create Class
   const handleSubmit = async (e) => {
     e.preventDefault();
     try {
       const payload = {
         ...formData,
-        subjects: Array.isArray(formData.subjects)
-          ? formData.subjects
-          : [formData.subjects],
+        subjects: Array.isArray(formData.subjects) ? formData.subjects : [formData.subjects],
+        admission_fee: parseFloat(formData.admission_fee) || 0,
+        monthly_fee: parseFloat(formData.monthly_fee) || 0,
       };
 
       if (user.role === 'super_admin') {
@@ -172,22 +231,56 @@ useEffect(() => {
         payload.school_id = user.school_id;
       }
 
-      await classesApi.create(payload);
-      toast.success('Class created successfully');
+      if (editingClass) {
+        await classesApi.update(editingClass.id, payload);
+        toast.success('Class updated successfully');
+      } else {
+        await classesApi.create(payload);
+        toast.success('Class created successfully');
+      }
+      
       setShowDialog(false);
       resetForm();
       loadClasses();
     } catch (error) {
-      toast.error(error.response?.data?.detail || 'Failed to create class');
+      toast.error(error.response?.data?.detail || `Failed to ₹{editingClass ? 'update' : 'create'} class`);
+    }
+  };
+
+  const handleEdit = (cls) => {
+    setEditingClass(cls);
+    setFormData({
+      name: cls.name || '',
+      section: cls.section || '',
+      subjects: Array.isArray(cls.subjects) ? cls.subjects : [],
+      admission_fee: cls.admission_fee?.toString() || '',
+      monthly_fee: cls.monthly_fee?.toString() || '',
+      is_active: cls.is_active ?? true,
+      school_id: cls.school_id || '',
+    });
+    setShowDialog(true);
+  };
+
+  const handleDelete = async (cls) => {
+    if (!confirm(`Are you sure you want to delete class "₹{cls.name}"?`)) return;
+    
+    try {
+      await classesApi.delete(cls.id);
+      toast.success('Class deleted successfully');
+      loadClasses();
+    } catch (error) {
+      toast.error(error.response?.data?.detail || 'Failed to delete class');
     }
   };
 
   const resetForm = () => {
+    setEditingClass(null);
     setFormData({
       name: '',
-      grade: '',
       section: '',
       subjects: [],
+      admission_fee: '',
+      monthly_fee: '',
       is_active: true,
       school_id: '',
     });
@@ -206,7 +299,7 @@ useEffect(() => {
     try {
       await classesApi.update(cls.id, { is_active: !cls.is_active });
       toast.success(
-        `Class ${cls.is_active ? 'deactivated' : 'activated'} successfully`
+        `Class ₹{cls.is_active ? 'deactivated' : 'activated'} successfully`
       );
       setClasses((prev) =>
         prev.map((c) =>
@@ -218,14 +311,21 @@ useEffect(() => {
     }
   };
 
+  const formatCurrency = (amount) => {
+    return new Intl.NumberFormat('en-US', {
+      style: 'currency',
+      currency: 'INR',
+    }).format(amount || 0);
+  };
+
   return (
     <Layout>
       <div className="animate-fade-in space-y-6" data-testid="classes-page">
         {/* Header */}
         <div className="flex justify-between items-center">
           <div>
-            <h1 className="text-3xl font-semibold text-gray-900">📚 Classes</h1>
-            <p className="text-gray-600">Manage all class sections and subjects</p>
+            <h1 className="text-3xl font-semibold text-gray-900">📚 Class Management</h1>
+            <p className="text-gray-600">Manage all class sections, fees, and subjects</p>
           </div>
           <Button onClick={() => setShowDialog(true)} data-testid="add-class-btn">
             <Plus size={20} className="mr-2" />
@@ -238,19 +338,12 @@ useEffect(() => {
           <div className="flex items-center gap-2">
             <Search size={16} className="text-gray-400" />
             <Input
-              placeholder="Search by name"
+              placeholder="Search by class name"
               value={filters.name}
               onChange={(e) => handleFilterChange('name', e.target.value)}
               className="w-48"
             />
           </div>
-
-          <Input
-            placeholder="Grade"
-            value={filters.grade}
-            onChange={(e) => handleFilterChange('grade', e.target.value)}
-            className="w-32"
-          />
 
           <Input
             placeholder="Section"
@@ -281,7 +374,7 @@ useEffect(() => {
             <Button
               variant="ghost"
               onClick={() => {
-                setFilters({ name: '', grade: '', section: '', page: 1, limit: 10 });
+                setFilters({ name: '', section: '', page: 1, limit: 10 });
                 if (user.role === 'super_admin') setSelectedSchoolId('');
                 loadClasses();
               }}
@@ -299,49 +392,79 @@ useEffect(() => {
             </div>
           ) : classes.length > 0 ? (
             <>
-              <table className="min-w-full text-sm border-collapse">
-                <thead className="bg-gray-50 border-b">
-                  <tr>
-                    <th className="px-4 py-3 text-left font-semibold text-gray-700">
-                      Name
-                    </th>
-                    <th className="px-4 py-3 text-left font-semibold text-gray-700">
-                      Grade
-                    </th>
-                    <th className="px-4 py-3 text-left font-semibold text-gray-700">
-                      Section
-                    </th>
-                    <th className="px-4 py-3 text-left font-semibold text-gray-700">
-                      Subjects
-                    </th>
-                    <th className="px-4 py-3 text-left font-semibold text-gray-700">
-                      Active
-                    </th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {classes.map((cls) => (
-                    <tr key={cls.id} className="border-t hover:bg-gray-50 transition">
-                      <td className="px-4 py-3 font-medium text-gray-900">
-                        {cls.name}
-                      </td>
-                      <td className="px-4 py-3">{cls.grade}</td>
-                      <td className="px-4 py-3">{cls.section}</td>
-                      <td className="px-4 py-3">
-                        {Array.isArray(cls.subjects)
-                          ? cls.subjects.join(', ')
-                          : '-'}
-                      </td>
-                      <td className="px-4 py-3">
-                        <Switch
-                          checked={cls.is_active}
-                          onCheckedChange={() => toggleClassStatus(cls)}
-                        />
-                      </td>
+              <div className="overflow-x-auto">
+                <table className="min-w-full text-sm border-collapse">
+                  <thead className="bg-gray-50 border-b">
+                    <tr>
+                      <th className="px-4 py-3 text-left font-semibold text-gray-700 min-w-[150px]">
+                        Class Name
+                      </th>
+                      <th className="px-4 py-3 text-left font-semibold text-gray-700 min-w-[100px]">
+                        Section
+                      </th>
+                      <th className="px-4 py-3 text-left font-semibold text-gray-700 min-w-[200px]">
+                        Subjects
+                      </th>
+                      <th className="px-4 py-3 text-left font-semibold text-gray-700 min-w-[120px]">
+                        Admission Fee
+                      </th>
+                      <th className="px-4 py-3 text-left font-semibold text-gray-700 min-w-[120px]">
+                        Monthly Fee
+                      </th>
+                      <th className="px-4 py-3 text-left font-semibold text-gray-700 min-w-[100px]">
+                        Status
+                      </th>
+                      <th className="px-4 py-3 text-left font-semibold text-gray-700 min-w-[80px]">
+                        Actions
+                      </th>
                     </tr>
-                  ))}
-                </tbody>
-              </table>
+                  </thead>
+                  <tbody>
+                    {classes.map((cls) => (
+                      <tr key={cls.id} className="border-t hover:bg-gray-50 transition">
+                        <td className="px-4 py-3 font-medium text-gray-900">
+                          {cls.name}
+                        </td>
+                        <td className="px-4 py-3">{cls.section || '-'}</td>
+                        <td className="px-4 py-3">
+                          <SubjectCell subjects={cls.subjects} />
+                        </td>
+                        <td className="px-4 py-3 font-medium text-green-600">
+                          {formatCurrency(cls.admission_fee)}
+                        </td>
+                        <td className="px-4 py-3 font-medium text-blue-600">
+                          {formatCurrency(cls.monthly_fee)}
+                        </td>
+                        <td className="px-4 py-3">
+                          <Switch
+                            checked={cls.is_active}
+                            onCheckedChange={() => toggleClassStatus(cls)}
+                          />
+                        </td>
+                        <td className="px-4 py-3">
+                          <DropdownMenu>
+                            <DropdownMenuTrigger asChild>
+                              <Button variant="ghost" size="sm">
+                                <MoreVertical size={16} />
+                              </Button>
+                            </DropdownMenuTrigger>
+                            <DropdownMenuContent align="end">
+                              <DropdownMenuItem onClick={() => handleEdit(cls)}>
+                                <Edit size={16} className="mr-2" />
+                                Edit
+                              </DropdownMenuItem>
+                              <DropdownMenuItem onClick={() => handleDelete(cls)}>
+                                <Trash2 size={16} className="mr-2" />
+                                Delete
+                              </DropdownMenuItem>
+                            </DropdownMenuContent>
+                          </DropdownMenu>
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
 
               {/* Pagination */}
               <div className="flex justify-between items-center p-4 bg-gray-50 border-t">
@@ -386,10 +509,15 @@ useEffect(() => {
       </div>
 
       {/* Add/Edit Class Dialog */}
-      <Dialog open={showDialog} onOpenChange={setShowDialog}>
+      <Dialog open={showDialog} onOpenChange={(open) => {
+        setShowDialog(open);
+        if (!open) resetForm();
+      }}>
         <DialogContent className="max-w-lg">
           <DialogHeader>
-            <DialogTitle>Add New Class</DialogTitle>
+            <DialogTitle>
+              {editingClass ? 'Edit Class' : 'Add New Class'}
+            </DialogTitle>
           </DialogHeader>
 
           <form onSubmit={handleSubmit} className="space-y-4">
@@ -412,27 +540,21 @@ useEffect(() => {
             )}
 
             <Select
-  value={formData.name}
-  onValueChange={(v) => setFormData({ ...formData, name: v })}
->
-  <SelectTrigger className="w-full">
-    <SelectValue placeholder="Select Class Name" />
-  </SelectTrigger>
-  <SelectContent>
-    {systemClasses.map((cls, idx) => (
-      <SelectItem key={idx} value={cls}>
-        {cls}
-      </SelectItem>
-    ))}
-  </SelectContent>
-</Select>
+              value={formData.name}
+              onValueChange={(v) => setFormData({ ...formData, name: v })}
+            >
+              <SelectTrigger className="w-full">
+                <SelectValue placeholder="Select Class Name" />
+              </SelectTrigger>
+              <SelectContent>
+                {systemClasses.map((cls, idx) => (
+                  <SelectItem key={idx} value={cls}>
+                    {cls}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
 
-            <Input
-              placeholder="Grade"
-              value={formData.grade}
-              onChange={(e) => setFormData({ ...formData, grade: e.target.value })}
-              required
-            />
             <Input
               placeholder="Section"
               value={formData.section}
@@ -440,7 +562,37 @@ useEffect(() => {
               required
             />
 
-            {/* ✅ MultiSelect for Subjects */}
+            <div className="grid grid-cols-2 gap-4">
+              <div>
+                <label className="text-sm font-medium text-gray-700 mb-1 block">
+                  Admission Fee (₹)
+                </label>
+                <Input
+                  type="number"
+                  step="0.01"
+                  min="0"
+                  placeholder="0.00"
+                  value={formData.admission_fee}
+                  onChange={(e) => setFormData({ ...formData, admission_fee: e.target.value })}
+                  required
+                />
+              </div>
+              <div>
+                <label className="text-sm font-medium text-gray-700 mb-1 block">
+                  Monthly Fee (₹)
+                </label>
+                <Input
+                  type="number"
+                  step="0.01"
+                  min="0"
+                  placeholder="0.00"
+                  value={formData.monthly_fee}
+                  onChange={(e) => setFormData({ ...formData, monthly_fee: e.target.value })}
+                  required
+                />
+              </div>
+            </div>
+
             <MultiSelect
               options={subjects.map((s) => ({
                 label: s.name,
@@ -451,8 +603,18 @@ useEffect(() => {
               placeholder="Select Subjects"
             />
 
+            <div className="flex items-center space-x-2">
+              <Switch
+                checked={formData.is_active}
+                onCheckedChange={(checked) => setFormData({ ...formData, is_active: checked })}
+              />
+              <label className="text-sm font-medium text-gray-700">
+                Active Class
+              </label>
+            </div>
+
             <Button type="submit" className="w-full">
-              Add Class
+              {editingClass ? 'Update Class' : 'Add Class'}
             </Button>
           </form>
         </DialogContent>

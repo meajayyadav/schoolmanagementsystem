@@ -50,7 +50,7 @@ const AVAILABLE_ICONS = [
   'Home', 'School', 'Users', 'GraduationCap', 'BookOpen', 'ClipboardCheck',
   'TrendingUp', 'Clock', 'DollarSign', 'Bell', 'Library', 'FileText',
   'Award', 'Briefcase', 'UserCheck', 'Settings', 'BarChart', 'Calendar',
-  'MessageCircle', 'Mail', 'Phone', 'MapPin', 'Heart', 'Star'
+  'MessageCircle', 'Mail', 'Phone', 'MapPin', 'Heart', 'Star','IndianRupeeIcon'
 ];
 
 const ROLE_OPTIONS = [

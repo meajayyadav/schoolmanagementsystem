@@ -68,11 +68,81 @@ export const timetableApi = {
 //   create: (data) => api.post('/fees', data),
 //   pay: (feeId, paymentMethod) => api.patch(`/fees/${feeId}/pay?payment_method=${paymentMethod}`)
 // };
+ // frontend global api index.js
 export const feesApi = {
-  getAll: (params) => api.get('/fees', { params }), // ✅ Added
+  getAll: (params) => api.get('/fees', { params }),
   create: (data) => api.post('/fees', data),
-  getByStudent: (student_id) => api.get(`/fees/student/${student_id}`),
-  pay: (fee_id, data) => api.patch(`/fees/${fee_id}/pay`, data),
+  getByStudent: (studentId) => api.get(`/fees/student/${studentId}`),
+  pay: (feeId, data) => api.patch(`/fees/${feeId}/pay`, data),
+  updatePayment: (feeId, data) => api.patch(`/fees/${feeId}/payment`, data),
+  delete: (schoolId, feeId) => api.delete(`/fees/${schoolId}/${feeId}`),
+  getStatistics: (params) => api.get('/fees/statistics', { params }),
+  getFeeTypes: (params) => api.get('/fees/types', { params }),
+  
+  // Fee slip methods with proper parameter handling
+  getSlips: (params = {}) => {
+    const apiParams = { ...params };
+    
+    // Clean parameters for API - convert 'all' to empty strings
+    Object.keys(apiParams).forEach(key => {
+      if (apiParams[key] === 'all') {
+        apiParams[key] = '';
+      }
+    });
+    
+    // Remove empty values to avoid sending unnecessary params
+    Object.keys(apiParams).forEach(key => {
+      if (apiParams[key] === '' || apiParams[key] === null || apiParams[key] === undefined) {
+        delete apiParams[key];
+      }
+    });
+    
+    return api.get('/fee-slip/slips', { params: apiParams });
+  },
+  
+  getSlipStats: (params = {}) => {
+    const apiParams = { ...params };
+    
+    // Clean parameters
+    if (apiParams.school_id === 'all') apiParams.school_id = '';
+    if (apiParams.start_date === '') delete apiParams.start_date;
+    if (apiParams.end_date === '') delete apiParams.end_date;
+    
+    // Remove empty values
+    Object.keys(apiParams).forEach(key => {
+      if (apiParams[key] === '' || apiParams[key] === null || apiParams[key] === undefined) {
+        delete apiParams[key];
+      }
+    });
+    
+    return api.get('/fee-slip/slips/stats', { params: apiParams });
+  },
+  
+  getSlipById: (id) => {
+    if (!id) {
+      throw new Error('Fee slip ID is required');
+    }
+    return api.get(`/fee-slip/slips/${id}`);
+  },
+  
+  downloadSlip: (id) => {
+    if (!id) {
+      throw new Error('Fee slip ID is required');
+    }
+    return api.get(`/fee-slip/slips/${id}/download`, { 
+      responseType: 'blob' 
+    });
+  },
+  
+  // Optional: Generate PDF
+  generateSlipPdf: (id) => {
+    if (!id) {
+      throw new Error('Fee slip ID is required');
+    }
+    return api.get(`/fee-slip/slips/${id}/pdf`, {
+      responseType: 'blob'
+    });
+  }
 };
 
 
@@ -136,14 +206,24 @@ export const libraryApi = {
   }
 }
 
+// api/index.js - Update examsApi
 export const examsApi = {
   getAll: () => api.get('/exams'),
-  create: (data) => api.post('/exams', data)
+  getById: (id) => api.get(`/exams/${id}`),
+  create: (data) => api.post('/exams', data),
+  update: (id, data) => api.put(`/exams/${id}`, data),
+  delete: (id) => api.delete(`/exams/${id}`),
+  
+  // NEW: Add these for exam students and completed exams
+  getCompleted: (params = {}) => api.get('/exams/completed', { params }),
+  getStudents: (id, params = {}) => api.get(`/exams/${id}/students`, { params })
 };
 
+// api/index.js - Add to your existing APIs
 export const reportCardsApi = {
-  getByStudent: (studentId) => api.get(`/report-cards/student/${studentId}`),
-  create: (data) => api.post('/report-cards', data)
+  getFilters: (params) => api.get('/report-cards/filters', { params }),
+  getStudentReportCards: (params) => api.get('/report-cards/students', { params }),
+  generatePdf: (data) => api.post('/report-cards/generate-pdf', data)
 };
 
 export const staffApi = {
@@ -169,10 +249,12 @@ export const teachersApi = {
 //   delete: (id) => api.delete(`/classes/${id}`), // optional
 // };
 export const classesApi = {
-  getAll: (params) => api.get('/classes', { params }), // full backend structure
+  getAll: (params) => api.get('/classes', { params }),
   create: (data) => api.post('/classes', data),
   update: (id, data) => api.put(`/classes/${id}`, data),
   delete: (id) => api.delete(`/classes/${id}`),
+  // Fix: Use the correct endpoint format
+  getBySchool: (schoolId) => api.get(`/classes?school_id=${schoolId}`)
 };
 
 
@@ -193,10 +275,12 @@ export const usersApi = {
 };
 
 export const subjectsApi = {
-  getAll: () => api.get('/subjects'),
+  getAll: (params) => api.get('/subjects', { params }),
   create: (data) => api.post('/subjects', data),
   update: (id, data) => api.put(`/subjects/${id}`, data),
   remove: (id) => api.delete(`/subjects/${id}`),
+  // Fix: Use the correct endpoint format
+  getBySchool: (schoolId) => api.get(`/subjects?school_id=${schoolId}`)
 };
 
 
@@ -215,5 +299,50 @@ export const menusApi = {
   delete: (id) => api.delete(`/menus/${id}`),
   reorder: (data) => api.put('/menus/reorder', data)
 };
+// api/index.js - Add this to your existing API file
 
+// api/index.js
+export const bulkUploadApi = {
+  // Download template
+  downloadTemplate: () => 
+    api.get('/bulkUpload/students/template', { 
+      responseType: 'blob' 
+    }),
+  
+  // Bulk upload students
+  bulkUpload: (formData, config) => 
+    api.post('/bulkUpload/students', formData, {
+      headers: { 
+        'Content-Type': 'multipart/form-data' 
+      },
+      onUploadProgress: config?.onUploadProgress,
+      ...config
+    }),
+};
+// api/index.js - Add to your existing API file
+
+export const examMarksApi = {
+  getStudentsForMarks: (params) => api.get('/exam-marks/students', { params }),
+  getMarkDistribution: (params) => api.get('/exam-marks/distribution', { params }),
+  saveMarks: (data) => api.post('/exam-marks', data),
+  saveBulkMarks: (data) => api.post('/exam-marks/bulk', data),
+  getExistingMarks: (params) => api.get('/exam-marks', { params }),
+  
+  // NEW: Add exam status check
+  checkExamStatus: (params) => api.get('/exam-marks/check-status', { params })
+};
+// Reports API - Following your exact pattern
+export const reportsApi = {
+  // 📊 Get reports data with advanced filtering
+  getReportsData: (params) => api.get('/reports', { params }),
+  
+  // 📋 Get available report templates and configurations
+  getReportTemplates: () => api.get('/reports/templates'),
+  
+  // 💾 Export report in various formats (PDF, Excel, CSV)
+  exportReport: (data) => api.post('/reports/export', data),
+  
+  // ⏰ Schedule automated report generation
+  scheduleReport: (data) => api.post('/reports/schedule', data),
+};
 export default api;

@@ -2,7 +2,7 @@ import { Link, useLocation, useNavigate } from 'react-router-dom';
 import { useAuth } from '@/contexts/AuthContext';
 import {
   School, Home, Users, GraduationCap, BookOpen, Calendar,
-  ClipboardCheck, TrendingUp, Clock, DollarSign, Bell,
+  ClipboardCheck, TrendingUp, Clock, DollarSign, Bell,IndianRupeeIcon,
   Library, FileText, Award, Briefcase, User, LogOut, Menu, X
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
@@ -21,6 +21,7 @@ const ICON_MAP = {
   TrendingUp: TrendingUp,
   Clock: Clock,
   DollarSign: DollarSign,
+  IndianRupeeIcon: IndianRupeeIcon,
   Bell: Bell,
   Library: Library,
   FileText: FileText,
@@ -111,16 +112,20 @@ export default function Layout({ children }) {
     { name: 'Attendance', path: '/attendance', icon: 'ClipboardCheck', roles: ['super_admin', 'school_admin', 'teacher'] },
     { name: 'Grades', path: '/grades', icon: 'TrendingUp', roles: ['super_admin', 'school_admin', 'teacher', 'parent'] },
     { name: 'Timetable', path: '/timetable', icon: 'Clock', roles: ['super_admin', 'school_admin', 'teacher', 'student'] },
-    { name: 'Fees', path: '/fees', icon: 'DollarSign', roles: ['super_admin', 'school_admin', 'parent'] },
+    { name: 'Fees', path: '/fees', icon: 'IndianRupeeIcon', roles: ['super_admin', 'school_admin', 'parent'] },
     { name: 'Announcements', path: '/announcements', icon: 'Bell', roles: ['super_admin'] },
     { name: 'Library', path: '/library', icon: 'Library', roles: ['super_admin', 'school_admin', 'student'] },
     { name: 'Exams', path: '/exams', icon: 'FileText', roles: ['super_admin', 'school_admin', 'teacher', 'student'] },
+    { name: 'CreateExamSchedule', path: '/createExam', icon: 'FileText', roles: ['super_admin'] },
+    { name: 'ExamMarksEntry', path: '/examMarksEntry', icon: 'FileText', roles: ['super_admin','school_admin','teacher'] },
     { name: 'Report Cards', path: '/report-cards', icon: 'Award', roles: ['super_admin', 'school_admin', 'teacher', 'parent'] },
     { name: 'Staff', path: '/staff', icon: 'Briefcase', roles: ['super_admin', 'school_admin'] },
     { name: 'All Users', path: '/users', icon: 'Briefcase', roles: ['super_admin', 'school_admin'] },
     { name: 'Subject', path: '/subject', icon: 'Briefcase', roles: ['super_admin', 'school_admin'] },
     { name: 'SystemCode', path: '/systemcode', icon: 'Briefcase', roles: ['super_admin'] },
-    { name: 'MenuManagement', path: '/menus', icon: 'Briefcase', roles: ['super_admin'] }
+    { name: 'MenuManagement', path: '/menus', icon: 'Briefcase', roles: ['super_admin'] },
+    { name: 'BulkUpload', path: '/bulkUpload', icon: 'Briefcase', roles: ['super_admin','school_admin'] },
+    { name: 'ViewReports', path: '/viewReports', icon: 'Briefcase', roles: ['super_admin','school_admin'] }
   ];
 
   // Load school data based on user's school_id

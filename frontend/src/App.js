@@ -13,11 +13,15 @@ import Attendance from '@/pages/Attendance';
 import Grades from '@/pages/Grades';
 import Timetable from '@/pages/Timetable';
 import Fees from '@/pages/Fees';
+import FeePaidSlip from '@/pages/FeePaidSlip';
 import Announcements from '@/pages/Announcements';
 import Library from '@/pages/Library';
 import Exams from '@/pages/Exams';
+import CreateExamSchedule from '@/pages/CreateExamSchedule';
+import ExamMarksEntry from '@/pages/ExamMarksEntry';
 import ReportCards from '@/pages/ReportCards';
 import Staff from '@/pages/Staff';
+import BulkUpload from '@/pages/BulkUpload';
 import Profile from '@/pages/Profile';
 import UserManagement from './pages/userManagement';
 import Subject from './pages/Subject';
@@ -25,6 +29,7 @@ import SystemCode from './pages/systemCode';
 import MenuManagement from './pages/menuManagement';
 import { useEffect, useState } from 'react';
 import { menusApi } from './api';
+import ViewReports from './pages/ViewReports';
 
 // Route permission mapping as fallback (optional)
 const FALLBACK_PERMISSIONS = {
@@ -38,16 +43,20 @@ const FALLBACK_PERMISSIONS = {
   '/grades': ['super_admin', 'school_admin', 'teacher', 'parent'],
   '/timetable': ['super_admin', 'school_admin', 'teacher', 'student'],
   '/fees': ['super_admin', 'school_admin', 'parent'],
+  '/feePaidSlip': ['super_admin', 'school_admin'],
   '/announcements': ['super_admin', 'school_admin', 'teacher', 'student', 'parent'],
   '/library': ['super_admin', 'school_admin', 'student'],
   '/exams': ['super_admin', 'school_admin', 'teacher', 'student'],
+  '/createExam': ['super_admin'],
   '/report-cards': ['super_admin', 'school_admin', 'teacher', 'parent'],
   '/staff': ['super_admin', 'school_admin'],
   '/profile': ['super_admin', 'school_admin', 'teacher', 'student', 'parent'],
   '/users': ['super_admin', 'school_admin'],
   '/subject': ['super_admin', 'school_admin'],
   '/systemcode': ['super_admin'],
-  '/menus': ['super_admin']
+  '/menus': ['super_admin'],
+  '/bulkUpload': ['super_admin','school_admin'],
+  '/ViewReports': ['super_admin','school_admin']
 };
 
 // Custom hook to manage user menus
@@ -236,6 +245,11 @@ function AppRoutes() {
           <Fees />
         </ProtectedRoute>
       } />
+      <Route path="/feePaidSlip" element={
+        <ProtectedRoute path="/feePaidSlip">
+          <FeePaidSlip />
+        </ProtectedRoute>
+      } />
       
       <Route path="/announcements" element={
         <ProtectedRoute path="/announcements">
@@ -252,6 +266,16 @@ function AppRoutes() {
       <Route path="/exams" element={
         <ProtectedRoute path="/exams">
           <Exams />
+        </ProtectedRoute>
+      } />
+      <Route path="/createExam" element={
+        <ProtectedRoute path="/createExam">
+          <CreateExamSchedule />
+        </ProtectedRoute>
+      } />
+      <Route path="/examMarksEntry" element={
+        <ProtectedRoute path="/examMarksEntry">
+          <ExamMarksEntry />
         </ProtectedRoute>
       } />
       
@@ -294,6 +318,16 @@ function AppRoutes() {
       <Route path="/menus" element={
         <ProtectedRoute path="/menus">
           <MenuManagement />
+        </ProtectedRoute>
+      } />
+      <Route path="/bulkUpload" element={
+        <ProtectedRoute path="/bulkUpload">
+          <BulkUpload />
+        </ProtectedRoute>
+      } />
+      <Route path="/viewReports" element={
+        <ProtectedRoute path="/viewReports">
+          <ViewReports />
         </ProtectedRoute>
       } />
       
