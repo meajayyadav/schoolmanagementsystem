@@ -24,7 +24,22 @@ export const studentsApi = {
     api.put(`/students/${id}`, data, { headers: { 'Content-Type': 'multipart/form-data' } }),
   delete: (id) => api.delete(`/students/${id}`),
 };
-
+// Student Promotion API
+export const studentPromotionApi = {
+  // Promote students to next class
+  promoteStudents: (data) => api.post('/students/promote', data),
+  
+  // Get student academic history
+  getAcademicHistory: (studentId, params = {}) => 
+    api.get(`/students/${studentId}/academic-history`, { params }),
+  
+  // Get promotion batches
+  getPromotionBatches: (params = {}) => 
+    api.get('/students/promotion-batches', { params }),
+  
+  // Bulk update student class
+  bulkUpdateClass: (data) => api.post('/students/bulk-update-class', data),
+};
 export const attendanceApi = {
   getAll: (params) => api.get('/attendance', { params }),
   create: (data) => api.post('/attendance', data),

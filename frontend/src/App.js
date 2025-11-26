@@ -30,6 +30,7 @@ import MenuManagement from './pages/menuManagement';
 import { useEffect, useState } from 'react';
 import { menusApi } from './api';
 import ViewReports from './pages/ViewReports';
+import PromoteStudents from './pages/PromoteStudents';
 
 // Route permission mapping as fallback (optional)
 const FALLBACK_PERMISSIONS = {
@@ -56,7 +57,8 @@ const FALLBACK_PERMISSIONS = {
   '/systemcode': ['super_admin'],
   '/menus': ['super_admin'],
   '/bulkUpload': ['super_admin','school_admin'],
-  '/ViewReports': ['super_admin','school_admin']
+  '/ViewReports': ['super_admin','school_admin'],
+  '/PromoteStudents': ['super_admin','school_admin']
 };
 
 // Custom hook to manage user menus
@@ -328,6 +330,11 @@ function AppRoutes() {
       <Route path="/viewReports" element={
         <ProtectedRoute path="/viewReports">
           <ViewReports />
+        </ProtectedRoute>
+      } />
+      <Route path="/promoteStudents" element={
+        <ProtectedRoute path="/promoteStudents">
+          <PromoteStudents />
         </ProtectedRoute>
       } />
       

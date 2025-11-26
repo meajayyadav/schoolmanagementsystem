@@ -393,7 +393,7 @@ export default function Dashboard() {
                     {activeSchool.city || 'City'} • {activeSchool.state || 'State'}
                   </Badge>
                   <Badge variant="secondary" className="bg-purple-100 text-purple-700">
-                    Since {activeSchool.established_year || '2020'}
+                    Since {activeSchool.established_year || '2025'}
                   </Badge>
                 </div>
               )}
