@@ -8,13 +8,21 @@ const {
   deleteStudent,
   listStudents,
   getStudent,
+  getStudentsByClass
 } = require('../controllers/studentController');
 
-// /api/students
+// Import promotion routes
+const promotionRoutes = require('./studentPromotionRoutes');
+
+// Basic student CRUD routes
 router.post('/', requireAuthMiddleware, upload.single('picture'), createStudent);
 router.put('/:id', requireAuthMiddleware, upload.single('picture'), updateStudent);
 router.delete('/:id', requireAuthMiddleware, deleteStudent);
 router.get('/', requireAuthMiddleware, listStudents);
 router.get('/:id', requireAuthMiddleware, getStudent);
+router.get('/class/:classId', requireAuthMiddleware, getStudentsByClass);
+
+// Use promotion routes
+router.use('/', promotionRoutes);
 
 module.exports = router;
