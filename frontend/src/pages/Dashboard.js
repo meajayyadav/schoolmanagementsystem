@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'react';
 import { useAuth } from '@/contexts/AuthContext';
 import Layout from '@/components/Layout';
-import { dashboardApi, studentsApi, classesApi, schoolsApi, feesApi } from '@/api';
+import { dashboardApi, studentsApi, classesApi, schoolsApi, feesApi, systemCodesApi } from '@/api';
 import { useNavigate } from 'react-router-dom';
 import {
   Users,
@@ -67,6 +67,8 @@ export default function Dashboard() {
   const [classWiseFees, setClassWiseFees] = useState([]);
   const [timeRange, setTimeRange] = useState('monthly');
   const [activeSchool, setActiveSchool] = useState(null);
+  const [academicYears, setAcademicYears] = useState([]);
+  const [selectedAcademicYear, setSelectedAcademicYear] = useState('');
 
   // ✅ Load schools for super_admin
   useEffect(() => {
@@ -95,12 +97,59 @@ export default function Dashboard() {
     }
   }, [selectedSchool, schools]);
 
+  // ✅ Load academic years from system codes
+  useEffect(() => {
+    if (user) {
+      loadAcademicYears();
+    }
+  }, [user, selectedSchool]);
+
   // ✅ Load all dashboard data
   useEffect(() => {
     if (user) {
-      loadDashboardData();
+      // Only load if academic years are loaded (or if there are no academic years)
+      if (academicYears.length === 0 || selectedAcademicYear) {
+        loadDashboardData();
+      }
     }
-  }, [user, selectedSchool, timeRange]);
+  }, [user, selectedSchool, timeRange, selectedAcademicYear, academicYears.length]);
+
+  const loadAcademicYears = async () => {
+    try {
+      const schoolId = user.role === 'super_admin' ? selectedSchool : user.school_id;
+      
+      if (!schoolId) {
+        console.warn('No school ID available for fetching academic years');
+        return;
+      }
+
+      const res = await systemCodesApi.getAll({ school_id: schoolId });
+      
+      // Filter and extract academic years (code: "AY")
+      const academicYearCodes = res.data.filter(
+        (c) => c.code === "AY" && Array.isArray(c.items)
+      );
+      
+      // Process academic years
+      const academicYearOptions = academicYearCodes.length > 0 
+        ? academicYearCodes[0].items.map((item) => ({
+            value: item.value || item.label,
+            label: item.label
+          }))
+        : [];
+
+      setAcademicYears(academicYearOptions);
+
+      // Set default academic year (first one, typically current)
+      if (academicYearOptions.length > 0 && !selectedAcademicYear) {
+        setSelectedAcademicYear(academicYearOptions[0].value);
+      }
+
+    } catch (error) {
+      console.error('Error loading academic years:', error);
+      setAcademicYears([]);
+    }
+  };
 
   const loadDashboardData = async () => {
     try {
@@ -109,6 +158,11 @@ export default function Dashboard() {
         user.role === 'super_admin' && selectedSchool
           ? { school_id: selectedSchool, period: timeRange }
           : { period: timeRange };
+      
+      // Add academic_year only if it's selected
+      if (selectedAcademicYear) {
+        params.academic_year = selectedAcademicYear;
+      }
 
       // Load all data from dashboard API
       const response = await dashboardApi.getStats(params);
@@ -134,7 +188,7 @@ export default function Dashboard() {
     }
   };
 
-  // Enhanced Stats by role with better visual hierarchy
+  // Enhanced Stats by role with ALL cards
   const superAdminStats = [
     { 
       label: 'Total Schools', 
@@ -143,7 +197,8 @@ export default function Dashboard() {
       color: 'bg-gradient-to-br from-blue-500 to-blue-600',
       trend: '+12%',
       trendUp: true,
-      description: 'Active institutions'
+      description: 'Active institutions',
+      route: '/schools'
     },
     { 
       label: 'Total Students', 
@@ -152,7 +207,8 @@ export default function Dashboard() {
       color: 'bg-gradient-to-br from-green-500 to-green-600',
       trend: '+8%',
       trendUp: true,
-      description: 'Across all schools'
+      description: 'Across all schools',
+      route: '/students'
     },
     { 
       label: 'Total Teachers', 
@@ -161,7 +217,8 @@ export default function Dashboard() {
       color: 'bg-gradient-to-br from-purple-500 to-purple-600',
       trend: '+5%',
       trendUp: true,
-      description: 'Teaching staff'
+      description: 'Teaching staff',
+      route: '/teachers'
     },
     { 
       label: 'Total Collection', 
@@ -170,7 +227,8 @@ export default function Dashboard() {
       color: 'bg-gradient-to-br from-amber-500 to-amber-600',
       trend: '+15%',
       trendUp: true,
-      description: 'This academic year'
+      description: 'This academic year',
+      route: '/fees'
     },
     { 
       label: 'Pending Fees', 
@@ -179,7 +237,8 @@ export default function Dashboard() {
       color: 'bg-gradient-to-br from-red-500 to-red-600',
       trend: '-3%',
       trendUp: false,
-      description: 'Outstanding amount'
+      description: 'Outstanding amount',
+      route: '/fees'
     },
     { 
       label: 'Collection Rate', 
@@ -188,7 +247,28 @@ export default function Dashboard() {
       color: 'bg-gradient-to-br from-emerald-500 to-emerald-600',
       trend: '+2%',
       trendUp: true,
-      description: 'Efficiency metric'
+      description: 'Efficiency metric',
+      route: '/viewReports'
+    },
+    { 
+      label: 'Total Profit', 
+      value: `₹${(stats.total_profit || 0).toLocaleString()}`, 
+      icon: TrendingUp, 
+      color: 'bg-gradient-to-br from-green-600 to-emerald-600',
+      trend: '+20%',
+      trendUp: true,
+      description: 'Revenue - Expenses',
+      route: '/salary'
+    },
+    { 
+      label: 'Total Losses', 
+      value: `₹${(stats.total_losses || 0).toLocaleString()}`, 
+      icon: AlertCircle, 
+      color: 'bg-gradient-to-br from-orange-500 to-red-600',
+      trend: '-5%',
+      trendUp: false,
+      description: 'Pending + Unpaid',
+      route: '/salary'
     },
   ];
 
@@ -200,7 +280,8 @@ export default function Dashboard() {
       color: 'bg-gradient-to-br from-blue-500 to-blue-600',
       trend: '+8%',
       trendUp: true,
-      description: 'Enrolled students'
+      description: 'Enrolled students',
+      route: '/students'
     },
     { 
       label: 'Total Teachers', 
@@ -209,7 +290,8 @@ export default function Dashboard() {
       color: 'bg-gradient-to-br from-green-500 to-green-600',
       trend: '+5%',
       trendUp: true,
-      description: 'Teaching staff'
+      description: 'Teaching staff',
+      route: '/teachers'
     },
     { 
       label: 'Total Classes', 
@@ -218,7 +300,8 @@ export default function Dashboard() {
       color: 'bg-gradient-to-br from-purple-500 to-purple-600',
       trend: '+2%',
       trendUp: true,
-      description: 'Active classes'
+      description: 'Active classes',
+      route: '/classes'
     },
     { 
       label: 'Fee Collected', 
@@ -227,7 +310,8 @@ export default function Dashboard() {
       color: 'bg-gradient-to-br from-amber-500 to-amber-600',
       trend: '+15%',
       trendUp: true,
-      description: 'Current term'
+      description: 'Current term',
+      route: '/fees'
     },
     { 
       label: 'Pending Fees', 
@@ -236,7 +320,8 @@ export default function Dashboard() {
       color: 'bg-gradient-to-br from-red-500 to-red-600',
       trend: '-3%',
       trendUp: false,
-      description: 'Requires attention'
+      description: 'Requires attention',
+      route: '/fees'
     },
     { 
       label: 'Collection Rate', 
@@ -245,7 +330,28 @@ export default function Dashboard() {
       color: 'bg-gradient-to-br from-emerald-500 to-emerald-600',
       trend: '+2%',
       trendUp: true,
-      description: 'Performance indicator'
+      description: 'Performance indicator',
+      route: '/viewReports'
+    },
+    { 
+      label: 'Total Profit', 
+      value: `₹${(stats.total_profit || 0).toLocaleString()}`, 
+      icon: TrendingUp, 
+      color: 'bg-gradient-to-br from-green-600 to-emerald-600',
+      trend: '+20%',
+      trendUp: true,
+      description: 'Revenue - Expenses',
+      route: '/salary'
+    },
+    { 
+      label: 'Total Losses', 
+      value: `₹${(stats.total_losses || 0).toLocaleString()}`, 
+      icon: AlertCircle, 
+      color: 'bg-gradient-to-br from-orange-500 to-red-600',
+      trend: '-5%',
+      trendUp: false,
+      description: 'Pending + Unpaid',
+      route: '/salary'
     },
   ];
 
@@ -257,7 +363,8 @@ export default function Dashboard() {
       color: 'bg-gradient-to-br from-blue-500 to-blue-600',
       trend: '+8%',
       trendUp: true,
-      description: 'In your classes'
+      description: 'In your classes',
+      route: '/students'
     },
     { 
       label: 'Assigned Classes', 
@@ -266,7 +373,8 @@ export default function Dashboard() {
       color: 'bg-gradient-to-br from-purple-500 to-purple-600',
       trend: '+2%',
       trendUp: true,
-      description: 'Teaching assignments'
+      description: 'Teaching assignments',
+      route: '/classes'
     },
     { 
       label: 'Attendance Rate', 
@@ -275,7 +383,18 @@ export default function Dashboard() {
       color: 'bg-gradient-to-br from-green-500 to-green-600',
       trend: '+1%',
       trendUp: true,
-      description: 'This month'
+      description: 'This month',
+      route: '/attendance'
+    },
+    { 
+      label: 'Performance', 
+      value: '92%', 
+      icon: TrendingUp, 
+      color: 'bg-gradient-to-br from-cyan-500 to-cyan-600',
+      trend: '+3%',
+      trendUp: true,
+      description: 'Overall rating',
+      route: '/viewReports'
     },
   ];
 
@@ -285,6 +404,10 @@ export default function Dashboard() {
       : user?.role === 'school_admin'
       ? schoolStats
       : teacherStats;
+
+  // Get first 4 cards for first row and remaining cards for second row
+  const firstRowStats = displayStats.slice(0, 4);
+  const secondRowStats = displayStats.slice(4);
 
   // Enhanced fee data with real analytics
   const feeData = [
@@ -327,7 +450,7 @@ export default function Dashboard() {
       description: 'Process student fee payments',
       icon: IndianRupee,
       color: 'from-green-500 to-green-600',
-      onClick: () => navigate('/fee-collection')
+      onClick: () => navigate('/fees')
     },
     ...(['school_admin', 'teacher'].includes(user?.role) ? [
       {
@@ -337,20 +460,13 @@ export default function Dashboard() {
         color: 'from-purple-500 to-purple-600',
         onClick: () => navigate('/attendance')
       },
-      // {
-      //   title: 'Add Grades',
-      //   description: 'Enter student grades',
-      //   icon: TrendingUp,
-      //   color: 'from-orange-500 to-orange-600',
-      //   onClick: () => navigate('/grades')
-      // }
     ] : []),
     {
       title: 'View Reports',
       description: 'Analytics and insights',
       icon: BarChart3,
       color: 'from-indigo-500 to-indigo-600',
-      onClick: () => navigate('/reports')
+      onClick: () => navigate('/viewReports')
     },
     {
       title: 'Student Management',
@@ -415,6 +531,23 @@ export default function Dashboard() {
                 </select>
               )}
               
+              {/* ✅ Academic Year dropdown */}
+              <select
+                value={selectedAcademicYear}
+                onChange={(e) => setSelectedAcademicYear(e.target.value)}
+                className="border border-gray-300 rounded-xl px-4 py-2.5 text-gray-700 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent bg-white shadow-sm"
+              >
+                {academicYears.length > 0 ? (
+                  academicYears.map((year) => (
+                    <option key={year.value} value={year.value}>
+                      {year.label}
+                    </option>
+                  ))
+                ) : (
+                  <option value="">Loading...</option>
+                )}
+              </select>
+              
               <select
                 value={timeRange}
                 onChange={(e) => setTimeRange(e.target.value)}
@@ -428,21 +561,22 @@ export default function Dashboard() {
             </div>
           </div>
 
-          {/* ENHANCED STATS GRID */}
+          {/* ENHANCED STATS GRID - FIRST ROW WITH 4 CARDS */}
           {loading ? (
             <div className="flex justify-center items-center h-64">
               <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600"></div>
             </div>
           ) : (
             <>
-              {/* MODERN STATS CARDS */}
-              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-6 gap-6">
-                {displayStats.map((stat, index) => {
+              {/* FIRST ROW - 4 CARDS */}
+              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6">
+                {firstRowStats.map((stat, index) => {
                   const Icon = stat.icon;
                   return (
                     <Card 
                       key={index} 
-                      className="group hover:shadow-xl transition-all duration-300 border-0 bg-white/80 backdrop-blur-sm overflow-hidden"
+                      className="group hover:shadow-xl transition-all duration-300 border-0 bg-white/80 backdrop-blur-sm overflow-hidden cursor-pointer"
+                      onClick={() => stat.route && navigate(stat.route)}
                     >
                       <div className="absolute top-0 left-0 w-full h-1 bg-gradient-to-r from-blue-500 to-purple-500"></div>
                       <CardContent className="p-5">
@@ -471,6 +605,46 @@ export default function Dashboard() {
                   );
                 })}
               </div>
+
+              {/* SECOND ROW - REMAINING CARDS */}
+              {secondRowStats.length > 0 && (
+                <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6">
+                  {secondRowStats.map((stat, index) => {
+                    const Icon = stat.icon;
+                    return (
+                      <Card 
+                        key={index} 
+                        className="group hover:shadow-xl transition-all duration-300 border-0 bg-white/80 backdrop-blur-sm overflow-hidden cursor-pointer"
+                        onClick={() => stat.route && navigate(stat.route)}
+                      >
+                        <div className="absolute top-0 left-0 w-full h-1 bg-gradient-to-r from-blue-500 to-purple-500"></div>
+                        <CardContent className="p-5">
+                          <div className="flex items-start justify-between">
+                            <div className="flex-1">
+                              <p className="text-gray-500 text-sm font-medium mb-1">{stat.label}</p>
+                              <p className="text-2xl font-bold text-gray-900 mb-2">
+                                {stat.value}
+                              </p>
+                              <p className="text-xs text-gray-400 mb-2">{stat.description}</p>
+                              <div className={`flex items-center text-xs font-medium ${stat.trendUp ? 'text-green-600' : 'text-red-600'}`}>
+                                {stat.trendUp ? 
+                                  <ArrowUp size={14} className="mr-1" /> : 
+                                  <ArrowDown size={14} className="mr-1" />
+                                }
+                                <span>{stat.trend}</span>
+                                <span className="text-gray-400 ml-1">from last period</span>
+                              </div>
+                            </div>
+                            <div className={`p-3 rounded-xl ${stat.color} shadow-lg group-hover:scale-110 transition-transform duration-300`}>
+                              <Icon className="text-white" size={20} />
+                            </div>
+                          </div>
+                        </CardContent>
+                      </Card>
+                    );
+                  })}
+                </div>
+              )}
 
               {/* ENHANCED QUICK ACTIONS */}
               <Card className="border-0 shadow-sm bg-gradient-to-br from-white to-blue-50/50 backdrop-blur-sm">
@@ -501,6 +675,8 @@ export default function Dashboard() {
                   </div>
                 </CardContent>
               </Card>
+
+              {/* REST OF THE CODE REMAINS EXACTLY THE SAME */}
               {/* ENHANCED ANALYTICS DASHBOARD */}
               <Tabs defaultValue="overview" className="space-y-6">
                 <TabsList className="grid w-full grid-cols-4 bg-gray-100/50 p-1 rounded-2xl">
@@ -1028,7 +1204,7 @@ export default function Dashboard() {
                       <Button 
                         variant="outline" 
                         className="w-full mt-6 border-gray-300 hover:bg-gray-50 rounded-xl py-3"
-                        onClick={() => navigate('/fee-collection')}
+                        onClick={() => navigate('/fees')}
                       >
                         View All Transactions
                       </Button>
@@ -1036,7 +1212,6 @@ export default function Dashboard() {
                   </Card>
                 </TabsContent>
               </Tabs>
-
             </>
           )}
         </div>

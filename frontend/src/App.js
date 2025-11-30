@@ -31,6 +31,8 @@ import { useEffect, useState } from 'react';
 import { menusApi } from './api';
 import ViewReports from './pages/ViewReports';
 import PromoteStudents from './pages/PromoteStudents';
+import Salary from './pages/Salary';
+import PendingFees from './pages/PendingFees';
 
 // Route permission mapping as fallback (optional)
 const FALLBACK_PERMISSIONS = {
@@ -58,7 +60,9 @@ const FALLBACK_PERMISSIONS = {
   '/menus': ['super_admin'],
   '/bulkUpload': ['super_admin','school_admin'],
   '/ViewReports': ['super_admin','school_admin'],
-  '/PromoteStudents': ['super_admin','school_admin']
+  '/PromoteStudents': ['super_admin','school_admin'],
+  '/salary': ['super_admin','school_admin'],
+  '/pending-fees': ['super_admin','school_admin']
 };
 
 // Custom hook to manage user menus
@@ -335,6 +339,18 @@ function AppRoutes() {
       <Route path="/promoteStudents" element={
         <ProtectedRoute path="/promoteStudents">
           <PromoteStudents />
+        </ProtectedRoute>
+      } />
+      
+      <Route path="/salary" element={
+        <ProtectedRoute path="/salary">
+          <Salary />
+        </ProtectedRoute>
+      } />
+      
+      <Route path="/pending-fees" element={
+        <ProtectedRoute path="/pending-fees">
+          <PendingFees />
         </ProtectedRoute>
       } />
       

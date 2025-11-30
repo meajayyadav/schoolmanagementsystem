@@ -20,9 +20,11 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { useAuth } from "@/contexts/AuthContext";
+import { useConfirm } from "@/hooks/use-confirm";
 
 export default function SystemCodes() {
   const { user } = useAuth();
+  const { confirm, ConfirmDialog } = useConfirm();
   const [systemCodes, setSystemCodes] = useState([]);
   const [schools, setSchools] = useState([]);
   const [selectedSchool, setSelectedSchool] = useState("");
@@ -159,7 +161,11 @@ export default function SystemCodes() {
 
   // 🔹 DELETE
   const handleDelete = async (id) => {
-    if (!confirm("Are you sure you want to delete this system code?")) return;
+    const confirmed = await confirm({
+      title: 'Delete System Code',
+      description: 'Are you sure you want to delete this system code? This action cannot be undone.',
+    });
+    if (!confirmed) return;
     try {
       const schoolId = user.role === "super_admin" ? selectedSchool : user.school_id;
       await systemCodesApi.delete(id, schoolId);
@@ -377,6 +383,7 @@ export default function SystemCodes() {
             </div>
           </DialogContent>
         </Dialog>
+        <ConfirmDialog />
       </div>
     </Layout>
   );

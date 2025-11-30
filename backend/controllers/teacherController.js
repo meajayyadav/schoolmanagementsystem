@@ -1,7 +1,17 @@
 const { v4: uuidv4 } = require('uuid');
 const { getCentralDb, getSchoolDbByName } = require('../db');
-
-
+const emailService = require('../utils/emailService');
+const bcrypt = require('bcryptjs');
+// Helper function to generate temporary password
+function generateTemporaryPassword() {
+  const length = 10;
+  const charset = 'abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789!@#$%';
+  let password = '';
+  for (let i = 0; i < length; i++) {
+    password += charset.charAt(Math.floor(Math.random() * charset.length));
+  }
+  return password;
+}
 async function createTeacher(req, res) {
   try {
     const user = req.user;
@@ -30,7 +40,11 @@ async function createTeacher(req, res) {
       return res.status(400).json({ detail: 'A user with this email already exists in this school' });
     }
 
-    // ✅ Create new user in school DB (without password)
+    // ✅ Generate temporary password
+    const temporaryPassword = generateTemporaryPassword();
+    const hashedPassword = await bcrypt.hash(temporaryPassword, 12);
+
+    // ✅ Create new user in school DB
     const newUser = {
       id: uuidv4(),
       name,
@@ -38,9 +52,10 @@ async function createTeacher(req, res) {
       role: 'teacher',
       school_id: school.id,
       is_active: true,
-      password: null, // can be set later
+      password: hashedPassword,
       created_at: new Date().toISOString(),
       updated_at: new Date().toISOString(),
+      temp_password: true, // Flag to indicate temporary password
     };
 
     await schoolDb.collection('users').insertOne(newUser);
@@ -68,10 +83,20 @@ async function createTeacher(req, res) {
 
     await schoolDb.collection('teachers').insertOne(teacher);
 
+    // ✅ Send email with temporary password
+    const emailSent = await emailService.sendTemporaryPassword(
+      email,
+      name,
+      temporaryPassword,
+      school.name
+    );
+
     res.json({
       message: 'Teacher and user created successfully in school database',
       teacher,
       user: newUser,
+      emailSent,
+      // Don't send password in response for security
     });
   } catch (err) {
     console.error('createTeacher error', err);
@@ -79,11 +104,6 @@ async function createTeacher(req, res) {
   }
 }
 
-
-
-// -------------------------
-// Get all teachers
-// -------------------------
 // -------------------------
 // Get all teachers
 // -------------------------

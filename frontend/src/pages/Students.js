@@ -36,6 +36,7 @@ import { useNavigate } from 'react-router-dom';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
+import { useConfirm } from '@/hooks/use-confirm';
 
 const PaginationControl = ({ pagination, filters, setFilters }) => {
   const pageSizes = [10, 25, 50, 100];
@@ -98,6 +99,7 @@ const PaginationControl = ({ pagination, filters, setFilters }) => {
 
 export default function Students() {
   const { user } = useAuth();
+  const { confirm, ConfirmDialog } = useConfirm();
   const [students, setStudents] = useState([]);
   const [schools, setSchools] = useState([]);
   const [selectedSchoolCode, setSelectedSchoolCode] = useState('');
@@ -269,7 +271,11 @@ const billRef = useRef();
   };
 
   const handleDelete = async (studentId) => {
-    if (!window.confirm('Are you sure you want to delete this student?')) return;
+    const confirmed = await confirm({
+      title: 'Delete Student',
+      description: 'Are you sure you want to delete this student? This action cannot be undone.',
+    });
+    if (!confirmed) return;
     try {
       await studentsApi.delete(studentId);
       toast.success('Student deleted successfully');
@@ -823,6 +829,7 @@ const PrintableBill = React.forwardRef(({ student, schoolName, admissionFee, mon
     </DialogFooter>
   </DialogContent>
 </Dialog>
+      <ConfirmDialog />
     </Layout>
   );
 }

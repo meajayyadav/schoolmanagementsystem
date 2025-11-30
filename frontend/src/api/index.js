@@ -360,4 +360,56 @@ export const reportsApi = {
   // ⏰ Schedule automated report generation
   scheduleReport: (data) => api.post('/reports/schedule', data),
 };
+
+// Salary API
+export const salaryApi = {
+  // Get all salaries with filtering and pagination
+  getAll: (params) => api.get('/salary', { params }),
+  
+  // Get salary by ID
+  getById: (id, params = {}) => api.get(`/salary/${id}`, { params }),
+  
+  // Create new salary record
+  create: (data) => api.post('/salary', data),
+  
+  // Update salary record
+  update: (id, data) => api.put(`/salary/${id}`, data),
+  
+  // Delete salary record
+  delete: (id, params = {}) => api.delete(`/salary/${id}`, { params }),
+  
+  // Pay salary (mark as paid)
+  pay: (id, data) => api.patch(`/salary/${id}/pay`, data),
+  
+  // Get salary statistics
+  getStatistics: (params = {}) => api.get('/salary/statistics', { params }),
+  
+  // Get employees (teachers/staff) for salary assignment
+  getEmployees: (params = {}) => api.get('/salary/employees', { params }),
+};
+
+// Pending Fees API
+export const pendingFeesApi = {
+  // Get all pending fees (single list)
+  getAll: (params = {}) => api.get('/pending-fees/all', { params }),
+  
+  // Get classes for filter dropdown
+  getClasses: (params = {}) => api.get('/pending-fees/classes', { params }),
+  
+  // Get pending fees grouped by class
+  getByClass: (params = {}) => api.get('/pending-fees/by-class', { params }),
+  
+  // Get pending fees grouped by month
+  getByMonth: (params = {}) => api.get('/pending-fees/by-month', { params }),
+  
+  // Send WhatsApp reminder
+  sendReminder: (data) => api.post('/pending-fees/send-reminder', data),
+  
+  // Generate UPI QR code
+  getQRCode: (params = {}) => api.get('/pending-fees/qr-code', { params }),
+  
+  // Get UPI information
+  getUPIInfo: (params = {}) => api.get('/pending-fees/upi-info', { params }),
+};
+
 export default api;

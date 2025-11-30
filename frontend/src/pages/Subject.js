@@ -12,6 +12,7 @@ import {
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from '@/components/ui/dropdown-menu';
 import { toast } from 'sonner';
 import { Plus, BookOpen, MoreVertical, Pencil, Trash } from 'lucide-react';
+import { useConfirm } from '@/hooks/use-confirm';
 import {
   Select,
   SelectTrigger,
@@ -75,6 +76,7 @@ const PaginationControl = ({ pagination, filters, setFilters }) => {
 };
 
 export default function Subject() {
+  const { confirm, ConfirmDialog } = useConfirm();
   const [subjects, setSubjects] = useState([]);
   const [loading, setLoading] = useState(false);
   const [showDialog, setShowDialog] = useState(false);
@@ -130,7 +132,11 @@ export default function Subject() {
 
   // ✅ Delete Subject
   const handleDelete = async (id) => {
-    if (!confirm('Are you sure you want to delete this subject?')) return;
+    const confirmed = await confirm({
+      title: 'Delete Subject',
+      description: 'Are you sure you want to delete this subject? This action cannot be undone.',
+    });
+    if (!confirmed) return;
     try {
       await subjectsApi.remove(id);
       toast.success('Subject deleted');
@@ -287,6 +293,7 @@ export default function Subject() {
             </div>
           </DialogContent>
         </Dialog>
+        <ConfirmDialog />
       </div>
     </Layout>
   );

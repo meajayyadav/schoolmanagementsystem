@@ -8,9 +8,11 @@ import { CalendarDays, PlusCircle, Clock, BookOpen, User, Edit3, Trash2 } from '
 import { timetableApi, classesApi, schoolsApi, teachersApi } from '@/api';
 import { useAuth } from '@/contexts/AuthContext';
 import { toast } from 'sonner';
+import { useConfirm } from '@/hooks/use-confirm';
 
 export default function Timetable() {
   const { user } = useAuth();
+  const { confirm, ConfirmDialog } = useConfirm();
 
   const [schools, setSchools] = useState([]);
   const [selectedSchool, setSelectedSchool] = useState('');
@@ -223,7 +225,11 @@ const handleSubmit = async (e) => {
 
   // 🗑️ Delete period
   const handleDelete = async (periodId) => {
-    if (!confirm('Are you sure you want to delete this period?')) return;
+    const confirmed = await confirm({
+      title: 'Delete Period',
+      description: 'Are you sure you want to delete this period? This action cannot be undone.',
+    });
+    if (!confirmed) return;
     
     try {
       await timetableApi.delete(periodId);
@@ -669,6 +675,7 @@ const handleSubmit = async (e) => {
             </form>
           </DialogContent>
         </Dialog>
+        <ConfirmDialog />
       </div>
     </Layout>
   );

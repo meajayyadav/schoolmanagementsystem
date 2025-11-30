@@ -67,7 +67,7 @@ const BillSummary = ({ admissionFee, monthlyFee }) => {
 };
 
 // Printable Bill Component
-const PrintableBill = React.forwardRef(({ student, schoolName, admissionFee, monthlyFee }, ref) => {
+const PrintableBill = React.forwardRef(({ student, schoolName, admissionFee, monthlyFee, academicYear }, ref) => {
   const formatCurrency = (amount) => {
     return new Intl.NumberFormat('en-US', {
       style: 'currency',
@@ -101,7 +101,7 @@ const PrintableBill = React.forwardRef(({ student, schoolName, admissionFee, mon
           <h3 className="font-semibold text-gray-900 mb-2">Payment Details</h3>
           <div className="space-y-1 text-sm">
             <p><span className="font-medium">Receipt No:</span> {Math.random().toString(36).substr(2, 9).toUpperCase()}</p>
-            <p><span className="font-medium">Academic Year:</span> {new Date().getFullYear()}-{new Date().getFullYear() + 1}</p>
+            <p><span className="font-medium">Academic Year:</span> {academicYear || `${new Date().getFullYear()}-${new Date().getFullYear() + 1}`}</p>
             <p><span className="font-medium">Payment Date:</span> {new Date().toLocaleDateString()}</p>
           </div>
         </div>
@@ -169,6 +169,8 @@ export default function Admission() {
   const [validationErrors, setValidationErrors] = useState({});
   const [imagePreview, setImagePreview] = useState(null);
   const [showBill, setShowBill] = useState(false);
+  const [showCredentials, setShowCredentials] = useState(false);
+  const [loginCredentials, setLoginCredentials] = useState(null);
   const [newStudent, setNewStudent] = useState(null);
   const [schoolName, setSchoolName] = useState('');
 
@@ -181,6 +183,13 @@ export default function Admission() {
   const [form, setForm] = useState({
     name: "",
     father_name: "",
+    mother_name: "",
+    father_occupation: "",
+    mother_occupation: "",
+    address: "",
+    mobile_number: "",
+    aadhar_number: "",
+    academic_year: "",
     class_id: "",
     date_of_birth: "",
     roll_number: "",
@@ -198,6 +207,13 @@ export default function Admission() {
       setForm({
         name: editingStudent.name || "",
         father_name: editingStudent.father_name || "",
+        mother_name: editingStudent.mother_name || "",
+        father_occupation: editingStudent.father_occupation || "",
+        mother_occupation: editingStudent.mother_occupation || "",
+        address: editingStudent.address || "",
+        mobile_number: editingStudent.mobile_number || "",
+        aadhar_number: editingStudent.aadhar_number || "",
+        academic_year: editingStudent.academic_year || "",
         date_of_birth: editingStudent.date_of_birth
           ? new Date(editingStudent.date_of_birth).toISOString().split("T")[0]
           : "",
@@ -217,6 +233,14 @@ export default function Admission() {
       if (editingStudent.picture) {
         setImagePreview(`${process.env.REACT_APP_BACKEND_URL}${editingStudent.picture}`);
       }
+    } else {
+      // Set default academic year for new admissions (current year - next year format)
+      const currentYear = new Date().getFullYear();
+      const nextYear = currentYear + 1;
+      setForm(prev => ({
+        ...prev,
+        academic_year: `${currentYear}-${nextYear}`
+      }));
     }
   }, [editingStudent, user]);
 
@@ -312,11 +336,13 @@ export default function Admission() {
     const requiredFields = {
       name: "Student Name",
       father_name: "Father's Name",
+      mobile_number: "Mobile Number",
       roll_number: "Roll Number",
       date_of_birth: "Date of Birth",
       class_id: "Class",
       class_section: "Section",
       enrollment_date: "Admission Date",
+      academic_year: "Academic Year",
     };
 
     const errors = {};
@@ -357,10 +383,18 @@ export default function Admission() {
 
         const response = await studentsApi.create(fd);
         const createdStudent = response.data?.student || response.data;
+        const credentials = response.data?.login_credentials;
         
         toast.success("Student admitted successfully!");
         setNewStudent(createdStudent);
-        setShowBill(true);
+        
+        // Show login credentials if available
+        if (credentials) {
+          setLoginCredentials(credentials);
+          setShowCredentials(true);
+        } else {
+          setShowBill(true);
+        }
       }
     } catch (err) {
       toast.error(err.response?.data?.detail || "Failed to save student");
@@ -455,239 +489,393 @@ export default function Admission() {
                 </div>
               )}
 
-              {/* Personal Information Section */}
-              <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-                {/* Left Column - Personal Info */}
-                <div className="space-y-6">
-                  {/* Profile Picture Upload */}
-                  <div className="flex flex-col items-center space-y-4 p-6 border-2 border-dashed border-gray-300 rounded-lg hover:border-blue-400 transition-colors">
-                    <div className="relative">
-                      {imagePreview ? (
-                        <img
-                          src={imagePreview}
-                          alt="Profile preview"
-                          className="h-24 w-24 rounded-full object-cover border-4 border-white shadow-lg"
-                        />
-                      ) : (
-                        <div className="h-24 w-24 bg-gradient-to-br from-gray-100 to-gray-200 rounded-full flex items-center justify-center border-4 border-white shadow-lg">
-                          <UserCircle className="h-12 w-12 text-gray-400" />
+              {/* Section 1: Student Information */}
+              <div className="space-y-6">
+                <div className="border-b pb-2">
+                  <h3 className="text-lg font-semibold text-gray-800 flex items-center gap-2">
+                    <User className="h-5 w-5 text-blue-600" />
+                    Student Information
+                  </h3>
+                </div>
+                <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+                  {/* Left Column - Personal Info */}
+                  <div className="space-y-6">
+                    {/* Profile Picture Upload */}
+                    <div className="flex flex-col items-center space-y-4 p-6 border-2 border-dashed border-gray-300 rounded-lg hover:border-blue-400 transition-colors">
+                      <div className="relative">
+                        {imagePreview ? (
+                          <img
+                            src={imagePreview}
+                            alt="Profile preview"
+                            className="h-24 w-24 rounded-full object-cover border-4 border-white shadow-lg"
+                          />
+                        ) : (
+                          <div className="h-24 w-24 bg-gradient-to-br from-gray-100 to-gray-200 rounded-full flex items-center justify-center border-4 border-white shadow-lg">
+                            <UserCircle className="h-12 w-12 text-gray-400" />
+                          </div>
+                        )}
+                        <div className="absolute -bottom-2 -right-2 bg-blue-600 text-white p-1 rounded-full">
+                          <Upload size={16} />
                         </div>
-                      )}
-                      <div className="absolute -bottom-2 -right-2 bg-blue-600 text-white p-1 rounded-full">
-                        <Upload size={16} />
+                      </div>
+                      <div className="text-center">
+                        <Label htmlFor="picture" className="cursor-pointer">
+                          <div className="flex items-center gap-2 text-blue-600 hover:text-blue-700 font-medium">
+                            <Upload size={16} />
+                            Upload Photo
+                          </div>
+                        </Label>
+                        <Input
+                          id="picture"
+                          type="file"
+                          accept="image/*"
+                          onChange={handleImageChange}
+                          className="hidden"
+                        />
+                        <p className="text-xs text-gray-500 mt-1">
+                          JPG, PNG or GIF • Max 5MB
+                        </p>
                       </div>
                     </div>
-                    <div className="text-center">
-                      <Label htmlFor="picture" className="cursor-pointer">
-                        <div className="flex items-center gap-2 text-blue-600 hover:text-blue-700 font-medium">
-                          <Upload size={16} />
-                          Upload Photo
-                        </div>
+
+                    {/* Student Name */}
+                    <div className="space-y-2">
+                      <Label htmlFor="name" className="flex items-center gap-2">
+                        <User className="h-4 w-4 text-gray-500" />
+                        Student Name <span className="text-red-500">*</span>
                       </Label>
                       <Input
-                        id="picture"
-                        type="file"
-                        accept="image/*"
-                        onChange={handleImageChange}
-                        className="hidden"
+                        id="name"
+                        value={form.name}
+                        onChange={(e) => handleChange("name", e.target.value)}
+                        placeholder="Enter full name"
+                        className={validationErrors.name ? "border-red-500" : ""}
                       />
-                      <p className="text-xs text-gray-500 mt-1">
-                        JPG, PNG or GIF • Max 5MB
-                      </p>
+                      {validationErrors.name && (
+                        <p className="text-red-500 text-sm">Student name is required</p>
+                      )}
+                    </div>
+
+                    {/* Date of Birth */}
+                    <div className="space-y-2">
+                      <Label htmlFor="date_of_birth" className="flex items-center gap-2">
+                        <Calendar className="h-4 w-4 text-gray-500" />
+                        Date of Birth <span className="text-red-500">*</span>
+                      </Label>
+                      <Input
+                        id="date_of_birth"
+                        type="date"
+                        value={form.date_of_birth}
+                        onChange={(e) => handleChange("date_of_birth", e.target.value)}
+                        className={validationErrors.date_of_birth ? "border-red-500" : ""}
+                      />
+                      {validationErrors.date_of_birth && (
+                        <p className="text-red-500 text-sm">Date of birth is required</p>
+                      )}
+                    </div>
+
+                    {/* Mobile Number */}
+                    <div className="space-y-2">
+                      <Label htmlFor="mobile_number" className="flex items-center gap-2">
+                        <Hash className="h-4 w-4 text-gray-500" />
+                        Mobile Number <span className="text-red-500">*</span>
+                      </Label>
+                      <Input
+                        id="mobile_number"
+                        type="tel"
+                        value={form.mobile_number}
+                        onChange={(e) => handleChange("mobile_number", e.target.value)}
+                        placeholder="e.g., 9876543210"
+                        className={validationErrors.mobile_number ? "border-red-500" : ""}
+                        maxLength={10}
+                      />
+                      {validationErrors.mobile_number && (
+                        <p className="text-red-500 text-sm">Mobile number is required</p>
+                      )}
+                      <p className="text-xs text-gray-500">This will be used as username for login</p>
                     </div>
                   </div>
 
-                  {/* Student Name */}
-                  <div className="space-y-2">
-                    <Label htmlFor="name" className="flex items-center gap-2">
-                      <User className="h-4 w-4 text-gray-500" />
-                      Student Name <span className="text-red-500">*</span>
-                    </Label>
-                    <Input
-                      id="name"
-                      value={form.name}
-                      onChange={(e) => handleChange("name", e.target.value)}
-                      placeholder="Enter full name"
-                      className={validationErrors.name ? "border-red-500" : ""}
-                    />
-                    {validationErrors.name && (
-                      <p className="text-red-500 text-sm">Student name is required</p>
-                    )}
-                  </div>
+                  {/* Right Column - Academic Info */}
+                  <div className="space-y-6">
+                    {/* Roll Number */}
+                    <div className="space-y-2">
+                      <Label htmlFor="roll_number" className="flex items-center gap-2">
+                        <Hash className="h-4 w-4 text-gray-500" />
+                        Roll Number <span className="text-red-500">*</span>
+                      </Label>
+                      <Input
+                        id="roll_number"
+                        value={form.roll_number}
+                        onChange={(e) => handleChange("roll_number", e.target.value)}
+                        placeholder="e.g., 101"
+                        className={validationErrors.roll_number ? "border-red-500" : ""}
+                      />
+                      {validationErrors.roll_number && (
+                        <p className="text-red-500 text-sm">Roll number is required</p>
+                      )}
+                    </div>
 
-                  {/* Father's Name */}
-                  <div className="space-y-2">
-                    <Label htmlFor="father_name" className="flex items-center gap-2">
-                      <User className="h-4 w-4 text-gray-500" />
-                      Father's Name <span className="text-red-500">*</span>
-                    </Label>
-                    <Input
-                      id="father_name"
-                      value={form.father_name}
-                      onChange={(e) => handleChange("father_name", e.target.value)}
-                      placeholder="Enter father's name"
-                      className={validationErrors.father_name ? "border-red-500" : ""}
-                    />
-                    {validationErrors.father_name && (
-                      <p className="text-red-500 text-sm">Father's name is required</p>
-                    )}
-                  </div>
+                    {/* Academic Year */}
+                    <div className="space-y-2">
+                      <Label htmlFor="academic_year" className="flex items-center gap-2">
+                        <Calendar className="h-4 w-4 text-gray-500" />
+                        Academic Year <span className="text-red-500">*</span>
+                      </Label>
+                      <Input
+                        id="academic_year"
+                        value={form.academic_year}
+                        onChange={(e) => handleChange("academic_year", e.target.value)}
+                        placeholder="e.g., 2024-2025"
+                        className={validationErrors.academic_year ? "border-red-500" : ""}
+                      />
+                      {validationErrors.academic_year && (
+                        <p className="text-red-500 text-sm">Academic year is required</p>
+                      )}
+                    </div>
 
-                  {/* Date of Birth */}
-                  <div className="space-y-2">
-                    <Label htmlFor="date_of_birth" className="flex items-center gap-2">
-                      <Calendar className="h-4 w-4 text-gray-500" />
-                      Date of Birth <span className="text-red-500">*</span>
-                    </Label>
-                    <Input
-                      id="date_of_birth"
-                      type="date"
-                      value={form.date_of_birth}
-                      onChange={(e) => handleChange("date_of_birth", e.target.value)}
-                      className={validationErrors.date_of_birth ? "border-red-500" : ""}
-                    />
-                    {validationErrors.date_of_birth && (
-                      <p className="text-red-500 text-sm">Date of birth is required</p>
-                    )}
+                    {/* Grade Level */}
+                    <div className="space-y-2">
+                      <Label htmlFor="grade_level" className="flex items-center gap-2">
+                        <BookOpen className="h-4 w-4 text-gray-500" />
+                        Grade / Level
+                      </Label>
+                      <Input
+                        id="grade_level"
+                        value={form.grade_level}
+                        onChange={(e) => handleChange("grade_level", e.target.value)}
+                        placeholder="e.g., 10"
+                      />
+                    </div>
+
+                    {/* Class Selection */}
+                    <div className="space-y-2">
+                      <Label htmlFor="class_id" className="flex items-center gap-2">
+                        <School className="h-4 w-4 text-gray-500" />
+                        Class <span className="text-red-500">*</span>
+                      </Label>
+                      <Select
+                        value={form.class_id}
+                        onValueChange={handleClassChange}
+                      >
+                        <SelectTrigger className={validationErrors.class_id ? "border-red-500" : ""}>
+                          <SelectValue placeholder="Select Class" />
+                        </SelectTrigger>
+                        <SelectContent>
+                          {classes.map((c) => (
+                            <SelectItem key={c.id} value={c.id}>
+                              {c.name || c.class_name} {c.section ? `- ${c.section}` : ''}
+                            </SelectItem>
+                          ))}
+                        </SelectContent>
+                      </Select>
+                      {validationErrors.class_id && (
+                        <p className="text-red-500 text-sm">Please select a class</p>
+                      )}
+                    </div>
+
+                    {/* Section */}
+                    <div className="space-y-2">
+                      <Label htmlFor="class_section" className="flex items-center gap-2">
+                        <Hash className="h-4 w-4 text-gray-500" />
+                        Section <span className="text-red-500">*</span>
+                      </Label>
+                      <Input
+                        id="class_section"
+                        value={form.class_section}
+                        onChange={(e) => handleChange("class_section", e.target.value)}
+                        placeholder="e.g., A"
+                        className={validationErrors.class_section ? "border-red-500" : ""}
+                      />
+                      {validationErrors.class_section && (
+                        <p className="text-red-500 text-sm">Section is required</p>
+                      )}
+                    </div>
+
+                    {/* Admission Date */}
+                    <div className="space-y-2">
+                      <Label htmlFor="enrollment_date" className="flex items-center gap-2">
+                        <Calendar className="h-4 w-4 text-gray-500" />
+                        Admission Date <span className="text-red-500">*</span>
+                      </Label>
+                      <Input
+                        id="enrollment_date"
+                        type="date"
+                        value={form.enrollment_date}
+                        onChange={(e) => handleChange("enrollment_date", e.target.value)}
+                        className={validationErrors.enrollment_date ? "border-red-500" : ""}
+                      />
+                      {validationErrors.enrollment_date && (
+                        <p className="text-red-500 text-sm">Admission date is required</p>
+                      )}
+                    </div>
                   </div>
                 </div>
+              </div>
 
-                {/* Right Column - Academic Info */}
-                <div className="space-y-6">
-                  {/* Roll Number */}
-                  <div className="space-y-2">
-                    <Label htmlFor="roll_number" className="flex items-center gap-2">
-                      <Hash className="h-4 w-4 text-gray-500" />
-                      Roll Number <span className="text-red-500">*</span>
-                    </Label>
-                    <Input
-                      id="roll_number"
-                      value={form.roll_number}
-                      onChange={(e) => handleChange("roll_number", e.target.value)}
-                      placeholder="e.g., 101"
-                      className={validationErrors.roll_number ? "border-red-500" : ""}
-                    />
-                    {validationErrors.roll_number && (
-                      <p className="text-red-500 text-sm">Roll number is required</p>
-                    )}
-                  </div>
-
-                  {/* Grade Level */}
-                  <div className="space-y-2">
-                    <Label htmlFor="grade_level" className="flex items-center gap-2">
-                      <BookOpen className="h-4 w-4 text-gray-500" />
-                      Grade / Level
-                    </Label>
-                    <Input
-                      id="grade_level"
-                      value={form.grade_level}
-                      onChange={(e) => handleChange("grade_level", e.target.value)}
-                      placeholder="e.g., 10"
-                    />
-                  </div>
-
-                  {/* Class Selection */}
-                  <div className="space-y-2">
-                    <Label htmlFor="class_id" className="flex items-center gap-2">
-                      <School className="h-4 w-4 text-gray-500" />
-                      Class <span className="text-red-500">*</span>
-                    </Label>
-                    <Select
-                      value={form.class_id}
-                      onValueChange={handleClassChange}
-                    >
-                      <SelectTrigger className={validationErrors.class_id ? "border-red-500" : ""}>
-                        <SelectValue placeholder="Select Class" />
-                      </SelectTrigger>
-                      <SelectContent>
-                        {classes.map((c) => (
-                          <SelectItem key={c.id} value={c.id}>
-                            {c.name || c.class_name} {c.section ? `- ${c.section}` : ''}
-                          </SelectItem>
-                        ))}
-                      </SelectContent>
-                    </Select>
-                    {validationErrors.class_id && (
-                      <p className="text-red-500 text-sm">Please select a class</p>
-                    )}
-                  </div>
-
-                  {/* Section */}
-                  <div className="space-y-2">
-                    <Label htmlFor="class_section" className="flex items-center gap-2">
-                      <Hash className="h-4 w-4 text-gray-500" />
-                      Section <span className="text-red-500">*</span>
-                    </Label>
-                    <Input
-                      id="class_section"
-                      value={form.class_section}
-                      onChange={(e) => handleChange("class_section", e.target.value)}
-                      placeholder="e.g., A"
-                      className={validationErrors.class_section ? "border-red-500" : ""}
-                    />
-                    {validationErrors.class_section && (
-                      <p className="text-red-500 text-sm">Section is required</p>
-                    )}
-                  </div>
-
-                  {/* Admission Date */}
-                  <div className="space-y-2">
-                    <Label htmlFor="enrollment_date" className="flex items-center gap-2">
-                      <Calendar className="h-4 w-4 text-gray-500" />
-                      Admission Date <span className="text-red-500">*</span>
-                    </Label>
-                    <Input
-                      id="enrollment_date"
-                      type="date"
-                      value={form.enrollment_date}
-                      onChange={(e) => handleChange("enrollment_date", e.target.value)}
-                      className={validationErrors.enrollment_date ? "border-red-500" : ""}
-                    />
-                    {validationErrors.enrollment_date && (
-                      <p className="text-red-500 text-sm">Admission date is required</p>
-                    )}
-                  </div>
-
-                  {/* Fee Fields */}
-                  <div className="grid grid-cols-2 gap-4">
+              {/* Section 2: Family Details */}
+              <div className="space-y-6 pt-6 border-t">
+                <div className="border-b pb-2">
+                  <h3 className="text-lg font-semibold text-gray-800 flex items-center gap-2">
+                    <UserCircle className="h-5 w-5 text-green-600" />
+                    Family Details
+                  </h3>
+                </div>
+                <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+                  <div className="space-y-6">
+                    {/* Father's Name */}
                     <div className="space-y-2">
-                      <Label htmlFor="admission_fee" className="flex items-center gap-2">
-                        <IndianRupeeIcon className="h-4 w-4 text-gray-500" />
-                        Admission Fee
+                      <Label htmlFor="father_name" className="flex items-center gap-2">
+                        <User className="h-4 w-4 text-gray-500" />
+                        Father's Name <span className="text-red-500">*</span>
                       </Label>
-                      <div className="relative">
-                        <IndianRupeeIcon className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 h-4 w-4" />
-                        <Input
-                          id="admission_fee"
-                          type="number"
-                          step="0.01"
-                          min="0"
-                          value={form.admission_fee}
-                          onChange={(e) => handleChange("admission_fee", e.target.value)}
-                          className="pl-10"
-                          placeholder="0.00"
-                        />
-                      </div>
+                      <Input
+                        id="father_name"
+                        value={form.father_name}
+                        onChange={(e) => handleChange("father_name", e.target.value)}
+                        placeholder="Enter father's name"
+                        className={validationErrors.father_name ? "border-red-500" : ""}
+                      />
+                      {validationErrors.father_name && (
+                        <p className="text-red-500 text-sm">Father's name is required</p>
+                      )}
                     </div>
 
+                    {/* Father's Occupation */}
                     <div className="space-y-2">
-                      <Label htmlFor="monthly_fee" className="flex items-center gap-2">
-                        <IndianRupeeIcon className="h-4 w-4 text-gray-500" />
-                        Monthly Fee
+                      <Label htmlFor="father_occupation" className="flex items-center gap-2">
+                        <User className="h-4 w-4 text-gray-500" />
+                        Father's Occupation
                       </Label>
-                      <div className="relative">
-                        <IndianRupeeIcon className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 h-4 w-4" />
-                        <Input
-                          id="monthly_fee"
-                          type="number"
-                          step="0.01"
-                          min="0"
-                          value={form.monthly_fee}
-                          onChange={(e) => handleChange("monthly_fee", e.target.value)}
-                          className="pl-10"
-                          placeholder="0.00"
-                        />
-                      </div>
+                      <Input
+                        id="father_occupation"
+                        value={form.father_occupation}
+                        onChange={(e) => handleChange("father_occupation", e.target.value)}
+                        placeholder="Enter father's occupation"
+                      />
+                    </div>
+                  </div>
+
+                  <div className="space-y-6">
+                    {/* Mother's Name */}
+                    <div className="space-y-2">
+                      <Label htmlFor="mother_name" className="flex items-center gap-2">
+                        <User className="h-4 w-4 text-gray-500" />
+                        Mother's Name
+                      </Label>
+                      <Input
+                        id="mother_name"
+                        value={form.mother_name}
+                        onChange={(e) => handleChange("mother_name", e.target.value)}
+                        placeholder="Enter mother's name"
+                      />
+                    </div>
+
+                    {/* Mother's Occupation */}
+                    <div className="space-y-2">
+                      <Label htmlFor="mother_occupation" className="flex items-center gap-2">
+                        <User className="h-4 w-4 text-gray-500" />
+                        Mother's Occupation
+                      </Label>
+                      <Input
+                        id="mother_occupation"
+                        value={form.mother_occupation}
+                        onChange={(e) => handleChange("mother_occupation", e.target.value)}
+                        placeholder="Enter mother's occupation"
+                      />
+                    </div>
+                  </div>
+
+                  {/* Address - Full Width */}
+                  <div className="lg:col-span-2 space-y-2">
+                    <Label htmlFor="address" className="flex items-center gap-2">
+                      <Hash className="h-4 w-4 text-gray-500" />
+                      Address
+                    </Label>
+                    <Input
+                      id="address"
+                      value={form.address}
+                      onChange={(e) => handleChange("address", e.target.value)}
+                      placeholder="Enter complete address"
+                    />
+                  </div>
+                </div>
+              </div>
+
+              {/* Section 3: Government IDs */}
+              <div className="space-y-6 pt-6 border-t">
+                <div className="border-b pb-2">
+                  <h3 className="text-lg font-semibold text-gray-800 flex items-center gap-2">
+                    <Hash className="h-5 w-5 text-purple-600" />
+                    Government IDs
+                  </h3>
+                </div>
+                <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+                  {/* Aadhar Card Number */}
+                  <div className="space-y-2">
+                    <Label htmlFor="aadhar_number" className="flex items-center gap-2">
+                      <Hash className="h-4 w-4 text-gray-500" />
+                      Aadhar Card Number
+                    </Label>
+                    <Input
+                      id="aadhar_number"
+                      type="text"
+                      value={form.aadhar_number}
+                      onChange={(e) => handleChange("aadhar_number", e.target.value.replace(/\D/g, '').slice(0, 12))}
+                      placeholder="Enter 12-digit Aadhar number"
+                      maxLength={12}
+                    />
+                    <p className="text-xs text-gray-500">12-digit Aadhar number</p>
+                  </div>
+                </div>
+              </div>
+
+              {/* Section 4: Fee Information */}
+              <div className="space-y-6 pt-6 border-t">
+                <div className="border-b pb-2">
+                  <h3 className="text-lg font-semibold text-gray-800 flex items-center gap-2">
+                    <IndianRupeeIcon className="h-5 w-5 text-orange-600" />
+                    Fee Information
+                  </h3>
+                </div>
+                <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+                  <div className="space-y-2">
+                    <Label htmlFor="admission_fee" className="flex items-center gap-2">
+                      <IndianRupeeIcon className="h-4 w-4 text-gray-500" />
+                      Admission Fee
+                    </Label>
+                    <div className="relative">
+                      <IndianRupeeIcon className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 h-4 w-4" />
+                      <Input
+                        id="admission_fee"
+                        type="number"
+                        step="0.01"
+                        min="0"
+                        value={form.admission_fee}
+                        onChange={(e) => handleChange("admission_fee", e.target.value)}
+                        className="pl-10"
+                        placeholder="0.00"
+                      />
+                    </div>
+                  </div>
+
+                  <div className="space-y-2">
+                    <Label htmlFor="monthly_fee" className="flex items-center gap-2">
+                      <IndianRupeeIcon className="h-4 w-4 text-gray-500" />
+                      Monthly Fee
+                    </Label>
+                    <div className="relative">
+                      <IndianRupeeIcon className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 h-4 w-4" />
+                      <Input
+                        id="monthly_fee"
+                        type="number"
+                        step="0.01"
+                        min="0"
+                        value={form.monthly_fee}
+                        onChange={(e) => handleChange("monthly_fee", e.target.value)}
+                        className="pl-10"
+                        placeholder="0.00"
+                      />
                     </div>
                   </div>
                 </div>
@@ -753,6 +941,98 @@ export default function Admission() {
         </Card>
       </div>
 
+      {/* Login Credentials Dialog */}
+      <Dialog open={showCredentials} onOpenChange={setShowCredentials}>
+        <DialogContent className="max-w-md">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2">
+              <CheckCircle className="h-5 w-5 text-green-600" />
+              Student Login Credentials
+            </DialogTitle>
+          </DialogHeader>
+          
+          <div className="space-y-4 py-4">
+            <div className="bg-blue-50 border border-blue-200 rounded-lg p-4">
+              <p className="text-sm text-gray-600 mb-3">
+                Please save these credentials. The student can use them to login to the system.
+              </p>
+              
+              <div className="space-y-3">
+                <div>
+                  <Label className="text-xs text-gray-500 uppercase tracking-wide">Username</Label>
+                  <div className="mt-1 flex items-center gap-2">
+                    <Input
+                      value={loginCredentials?.username || ''}
+                      readOnly
+                      className="font-mono bg-white"
+                    />
+                    <Button
+                      size="sm"
+                      variant="outline"
+                      onClick={() => {
+                        navigator.clipboard.writeText(loginCredentials?.username || '');
+                        toast.success('Username copied to clipboard');
+                      }}
+                    >
+                      Copy
+                    </Button>
+                  </div>
+                </div>
+                
+                <div>
+                  <Label className="text-xs text-gray-500 uppercase tracking-wide">Temporary Password</Label>
+                  <div className="mt-1 flex items-center gap-2">
+                    <Input
+                      value={loginCredentials?.password || ''}
+                      readOnly
+                      type="password"
+                      className="font-mono bg-white"
+                    />
+                    <Button
+                      size="sm"
+                      variant="outline"
+                      onClick={() => {
+                        navigator.clipboard.writeText(loginCredentials?.password || '');
+                        toast.success('Password copied to clipboard');
+                      }}
+                    >
+                      Copy
+                    </Button>
+                  </div>
+                </div>
+              </div>
+              
+              <div className="mt-4 p-3 bg-yellow-50 border border-yellow-200 rounded">
+                <p className="text-xs text-yellow-800">
+                  <strong>Note:</strong> The student should change this temporary password after first login.
+                </p>
+              </div>
+            </div>
+          </div>
+          
+          <DialogFooter>
+            <Button 
+              onClick={() => {
+                setShowCredentials(false);
+                setShowBill(true);
+              }}
+              className="gap-2"
+            >
+              Continue to Receipt
+            </Button>
+            <Button 
+              variant="outline" 
+              onClick={() => {
+                setShowCredentials(false);
+                navigate("/students");
+              }}
+            >
+              Close
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
       {/* Printable Bill Dialog */}
       <Dialog open={showBill} onOpenChange={setShowBill}>
         <DialogContent className="max-w-4xl max-h-[90vh] overflow-y-auto">
@@ -770,6 +1050,7 @@ export default function Admission() {
               schoolName={schoolName}
               admissionFee={parseFloat(newStudent?.admission_fee) || 0}
               monthlyFee={parseFloat(newStudent?.monthly_fee) || 0}
+              academicYear={newStudent?.academic_year}
             />
           </div>
           

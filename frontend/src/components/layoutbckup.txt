@@ -2,7 +2,7 @@ import { Link, useLocation, useNavigate } from 'react-router-dom';
 import { useAuth } from '@/contexts/AuthContext';
 import {
   School, Home, Users, GraduationCap, BookOpen, Calendar,
-  ClipboardCheck, TrendingUp, Clock, DollarSign, Bell, IndianRupeeIcon,
+  ClipboardCheck, TrendingUp, Clock, DollarSign, Bell,IndianRupeeIcon,
   Library, FileText, Award, Briefcase, User, LogOut, Menu, X
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
@@ -36,16 +36,6 @@ const ICON_MAP = {
 // Fallback icon if the icon from API doesn't exist
 const FallbackIcon = Briefcase;
 
-// Cache for menus to persist across re-renders
-let menuCache = {
-  data: null,
-  timestamp: null,
-  userId: null
-};
-
-// Cache duration: 5 minutes
-const CACHE_DURATION = 5 * 60 * 1000;
-
 export default function Layout({ children }) {
   const { user, logout } = useAuth();
   const location = useLocation();
@@ -76,21 +66,8 @@ export default function Layout({ children }) {
     return () => document.removeEventListener('mousedown', handleClickOutside);
   }, []);
 
-  // Load dynamic menus from API - with caching
+  // Load dynamic menus from API
   const loadDynamicMenus = async () => {
-    // Check cache first
-    const now = Date.now();
-    if (
-      menuCache.data && 
-      menuCache.userId === user?.id &&
-      menuCache.timestamp && 
-      (now - menuCache.timestamp) < CACHE_DURATION
-    ) {
-      setDynamicMenus(menuCache.data);
-      setLoadingMenus(false);
-      return;
-    }
-
     try {
       setLoadingMenus(true);
       setMenuError(null);
@@ -108,13 +85,6 @@ export default function Layout({ children }) {
         is_active: menu.is_active !== false // Default to true if not specified
       })).filter(menu => menu.is_active); // Only include active menus
       
-      // Update cache
-      menuCache = {
-        data: transformedMenus,
-        timestamp: Date.now(),
-        userId: user?.id
-      };
-      
       setDynamicMenus(transformedMenus);
     } catch (error) {
       console.error('Failed to load dynamic menus:', error);
@@ -125,14 +95,6 @@ export default function Layout({ children }) {
       const filteredStaticNav = staticNavigation.filter(item => 
         item.roles.includes(user?.role)
       );
-      
-      // Cache the fallback menus too
-      menuCache = {
-        data: filteredStaticNav,
-        timestamp: Date.now(),
-        userId: user?.id
-      };
-      
       setDynamicMenus(filteredStaticNav);
     } finally {
       setLoadingMenus(false);
@@ -205,25 +167,10 @@ export default function Layout({ children }) {
     }
   }, [user]);
 
-  // Load dynamic menus only when user changes (login/logout)
+  // Load dynamic menus when user changes
   useEffect(() => {
     if (user) {
       loadDynamicMenus();
-    } else {
-      // Clear menus when user logs out
-      setDynamicMenus([]);
-      setLoadingMenus(false);
-    }
-  }, [user]); // Only depend on user object
-
-  // Clear cache when user logs out
-  useEffect(() => {
-    if (!user) {
-      menuCache = {
-        data: null,
-        timestamp: null,
-        userId: null
-      };
     }
   }, [user]);
 

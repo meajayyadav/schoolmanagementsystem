@@ -25,6 +25,16 @@ import {
 import { Card } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from '@/components/ui/alert-dialog';
 
 export default function Exams() {
   const { user } = useAuth();
@@ -43,6 +53,8 @@ export default function Exams() {
   const [selectedExam, setSelectedExam] = useState(null);
   const [showViewModal, setShowViewModal] = useState(false);
   const [toasts, setToasts] = useState([]);
+  const [showDeleteDialog, setShowDeleteDialog] = useState(false);
+  const [examToDelete, setExamToDelete] = useState(null);
 
   // Check user permissions
   const isSuperAdmin = user?.role === 'super_admin';
@@ -131,14 +143,21 @@ export default function Exams() {
     navigate('/createExam', { state: { examToEdit: exam } });
   };
 
-  const handleDeleteExam = async (examId) => {
-    if (!window.confirm('Are you sure you want to delete this exam? This action cannot be undone.')) return;
+  const handleDeleteClick = (examId) => {
+    setExamToDelete(examId);
+    setShowDeleteDialog(true);
+  };
+
+  const handleDeleteExam = async () => {
+    if (!examToDelete) return;
     
     setActionLoading(true);
+    setShowDeleteDialog(false);
     try {
-      await examsApi.delete(examId);
+      await examsApi.delete(examToDelete);
       await loadExams();
       showToast('Exam deleted successfully!');
+      setExamToDelete(null);
     } catch (error) {
       console.error('Failed to delete exam:', error);
       showToast('Failed to delete exam. Please try again.', 'error');
@@ -567,7 +586,7 @@ export default function Exams() {
                         </Button>
                         <Button
                           variant="ghost"
-                          onClick={() => handleDeleteExam(exam.id)}
+                          onClick={() => handleDeleteClick(exam.id)}
                           disabled={actionLoading}
                           className="text-red-600 hover:text-red-700 hover:bg-red-50 p-2"
                         >
@@ -679,6 +698,39 @@ export default function Exams() {
             </div>
           </div>
         )}
+
+        {/* Delete Confirmation Dialog */}
+        <AlertDialog open={showDeleteDialog} onOpenChange={setShowDeleteDialog}>
+          <AlertDialogContent className="max-w-md">
+            <AlertDialogHeader>
+              <AlertDialogTitle className="flex items-center gap-2 text-red-600">
+                <AlertCircle className="h-5 w-5" />
+                Delete Exam
+              </AlertDialogTitle>
+              <AlertDialogDescription className="pt-2">
+                Are you sure you want to delete this exam? This action cannot be undone.
+              </AlertDialogDescription>
+            </AlertDialogHeader>
+            <div className="bg-red-50 border border-red-200 rounded-lg p-4 mt-4">
+              <p className="text-sm text-red-800">
+                <strong>Warning:</strong> Deleting this exam will permanently remove it from the system. 
+                All associated data will be lost.
+              </p>
+            </div>
+            <AlertDialogFooter>
+              <AlertDialogCancel onClick={() => setExamToDelete(null)}>
+                Cancel
+              </AlertDialogCancel>
+              <AlertDialogAction
+                onClick={handleDeleteExam}
+                disabled={actionLoading}
+                className="bg-red-600 hover:bg-red-700 text-white"
+              >
+                {actionLoading ? 'Deleting...' : 'Delete Exam'}
+              </AlertDialogAction>
+            </AlertDialogFooter>
+          </AlertDialogContent>
+        </AlertDialog>
       </div>
     </Layout>
   );

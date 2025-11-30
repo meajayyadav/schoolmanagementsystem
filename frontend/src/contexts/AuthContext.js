@@ -45,9 +45,14 @@ export function AuthProvider({ children }) {
     }
   };
 
-  const login = async (email, password) => {
+  const login = async (emailOrMobile, password) => {
     try {
-      const res = await axios.post(`${API}/auth/login`, { email, password }, { withCredentials: true });
+      // Backend accepts both email and mobile number in the 'email' field
+      const res = await axios.post(
+        `${API}/auth/login`, 
+        { email: emailOrMobile, password }, 
+        { withCredentials: true }
+      );
       setUser(res.data.user);
       localStorage.setItem('user', JSON.stringify(res.data.user));
       toast.success('Login successful');

@@ -393,13 +393,14 @@ export default function Landing() {
               <form onSubmit={handleLogin} className="space-y-4">
                 <div className="space-y-2">
                   <Input
-                    type="email"
-                    placeholder="Enter your email"
+                    type="text"
+                    placeholder="Enter your email or mobile number"
                     value={email}
                     onChange={(e) => setEmail(e.target.value)}
                     className="h-12 rounded-lg"
                     required
                   />
+                  {/* <p className="text-xs text-gray-500">You can login using your email address or mobile number</p> */}
                 </div>
                 
                 <div className="space-y-2">

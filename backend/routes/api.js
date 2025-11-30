@@ -26,6 +26,8 @@ const bulkUploadRoutes = require('./bulkUploadRoutes');
 const examMarksRoutes = require('./examMarksRoutes');
 const feeSlipRoutes = require('./feeSlipRoutes');
 const reportRoutes = require('./reportRoutes');
+const salaryRoutes = require('./salaryRoutes');
+const pendingFeesRoutes = require('./pendingFeesRoutes');
 
 // ✅ Mount all route modules
 router.use('/auth', authRoutes);
@@ -51,6 +53,8 @@ router.use("/bulkUpload", bulkUploadRoutes);
 router.use("/exam-marks", examMarksRoutes);
 router.use("/fee-slip", feeSlipRoutes);
 router.use("/reports", reportRoutes);
+router.use("/salary", salaryRoutes);
+router.use("/pending-fees", pendingFeesRoutes);
 
 
 // ✅ Serve uploaded files globally

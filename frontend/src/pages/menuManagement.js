@@ -44,6 +44,7 @@ import {
   X
 } from 'lucide-react';
 import { useAuth } from '@/contexts/AuthContext';
+import { useConfirm } from '@/hooks/use-confirm';
 
 // Available icons for selection
 const AVAILABLE_ICONS = [
@@ -63,6 +64,7 @@ const ROLE_OPTIONS = [
 
 export default function MenuManagement() {
   const { user } = useAuth();
+  const { confirm, ConfirmDialog } = useConfirm();
   const [menus, setMenus] = useState([]);
   const [loading, setLoading] = useState(false);
   const [searchTerm, setSearchTerm] = useState('');
@@ -122,7 +124,11 @@ export default function MenuManagement() {
   };
 
   const handleDelete = async (menu) => {
-    if (!confirm(`Are you sure you want to delete "${menu.name}"? This will remove this menu from all schools.`)) return;
+    const confirmed = await confirm({
+      title: 'Delete Menu',
+      description: `Are you sure you want to delete "${menu.name}"? This will remove this menu from all schools. This action cannot be undone.`,
+    });
+    if (!confirmed) return;
     
     try {
       await menusApi.delete(menu.id); // Fixed: using menu.id instead of menu._id
@@ -563,6 +569,7 @@ export default function MenuManagement() {
             </form>
           </DialogContent>
         </Dialog>
+        <ConfirmDialog />
       </div>
     </Layout>
   );

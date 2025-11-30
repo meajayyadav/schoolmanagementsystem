@@ -27,6 +27,7 @@ import {
 import { useAuth } from '@/contexts/AuthContext';
 import { Switch } from '@/components/ui/switch';
 import { MultiSelect } from '@/components/ui/multiselect';
+import { useConfirm } from '@/hooks/use-confirm';
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -89,6 +90,7 @@ const SubjectCell = ({ subjects }) => {
 
 export default function Classes() {
   const { user } = useAuth();
+  const { confirm, ConfirmDialog } = useConfirm();
   const [classes, setClasses] = useState([]);
   const [schools, setSchools] = useState([]);
   const [subjects, setSubjects] = useState([]);
@@ -262,7 +264,11 @@ export default function Classes() {
   };
 
   const handleDelete = async (cls) => {
-    if (!confirm(`Are you sure you want to delete class "₹{cls.name}"?`)) return;
+    const confirmed = await confirm({
+      title: 'Delete Class',
+      description: `Are you sure you want to delete class "${cls.name}"? This action cannot be undone.`,
+    });
+    if (!confirmed) return;
     
     try {
       await classesApi.delete(cls.id);
@@ -619,6 +625,7 @@ export default function Classes() {
           </form>
         </DialogContent>
       </Dialog>
+      <ConfirmDialog />
     </Layout>
   );
 }

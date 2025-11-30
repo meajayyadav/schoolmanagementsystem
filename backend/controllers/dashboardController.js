@@ -5,7 +5,7 @@ async function getDashboardStats(req, res) {
   try {
     const user = req.user;
     const centralDb = getCentralDb();
-    const { school_id, period = 'monthly' } = req.query;
+    const { school_id, period = 'monthly', academic_year } = req.query;
 
     // ✅ Determine target school
     let targetSchoolId = user.school_id;
@@ -37,7 +37,8 @@ async function getDashboardStats(req, res) {
       recentTransactions,
       classDistribution,
       monthlyTrends,
-      classWiseFees // ✅ Added classWiseFees to parallel calls
+      classWiseFees, // ✅ Added classWiseFees to parallel calls
+      salaryStats // ✅ Added salary statistics
     ] = await Promise.all([
       // Basic counts
       schoolDb.collection('students').countDocuments({}),
@@ -45,19 +46,22 @@ async function getDashboardStats(req, res) {
       schoolDb.collection('classes').countDocuments({}),
       
       // Fee statistics
-      getFeeStatistics(schoolDb, period),
+      getFeeStatistics(schoolDb, period, academic_year),
       
       // Recent transactions
-      getRecentTransactions(schoolDb),
+      getRecentTransactions(schoolDb, academic_year),
       
       // Class distribution
       getClassDistribution(schoolDb),
       
       // Monthly trends
-      getMonthlyTrends(schoolDb),
+      getMonthlyTrends(schoolDb, academic_year),
       
       // ✅ Class-wise fees - added here
-      getClassWiseFees(schoolDb)
+      getClassWiseFees(schoolDb, academic_year),
+      
+      // ✅ Salary statistics
+      getSalaryStatistics(schoolDb, academic_year)
     ]);
 
     // ✅ Calculate collection rate
@@ -67,6 +71,12 @@ async function getDashboardStats(req, res) {
     const collection_rate = total_fee_amount > 0 
       ? Math.round((total_fee_collected / total_fee_amount) * 100) 
       : 0;
+
+    // ✅ Calculate profit and losses
+    const total_salary_paid = salaryStats.total_paid || 0;
+    const total_salary_pending = salaryStats.total_pending || 0;
+    const total_profit = total_fee_collected - total_salary_paid;
+    const total_losses = total_fee_pending + total_salary_pending;
 
     // ✅ Prepare response
     const response = {
@@ -80,6 +90,12 @@ async function getDashboardStats(req, res) {
       total_fee_collected,
       total_fee_pending,
       collection_rate,
+      
+      // Salary analytics
+      total_salary_paid,
+      total_salary_pending,
+      total_profit,
+      total_losses,
       
       // Detailed analytics
       fee_breakdown: feeStats.fee_type_breakdown || {},
@@ -159,10 +175,16 @@ async function getGlobalOverview(centralDb) {
 }
 
 // ✅ Fee statistics
-async function getFeeStatistics(schoolDb, period) {
+async function getFeeStatistics(schoolDb, period, academic_year) {
   try {
+    // Build filter for academic year
+    const filter = {};
+    if (academic_year) {
+      filter.academic_year = academic_year;
+    }
+    
     const fees = await schoolDb.collection('fees')
-      .find({}, { projection: { _id: 0, amount: 1, paid: 1, fee_type: 1, created_at: 1, payment_date: 1 } })
+      .find(filter, { projection: { _id: 0, amount: 1, paid: 1, fee_type: 1, created_at: 1, payment_date: 1, academic_year: 1 } })
       .toArray();
 
     let total_collection = 0;
@@ -229,10 +251,19 @@ async function getFeeStatistics(schoolDb, period) {
 }
 
 // ✅ Recent transactions
-async function getRecentTransactions(schoolDb) {
+async function getRecentTransactions(schoolDb, academic_year) {
   try {
+    // Build match filter for academic year
+    const matchFilter = {};
+    if (academic_year) {
+      matchFilter.academic_year = academic_year;
+    }
+    
     const transactions = await schoolDb.collection('fees')
       .aggregate([
+        {
+          $match: matchFilter
+        },
         {
           $lookup: {
             from: 'students',
@@ -326,20 +357,27 @@ async function getClassDistribution(schoolDb) {
 }
 
 // ✅ Monthly trends
-async function getMonthlyTrends(schoolDb) {
+async function getMonthlyTrends(schoolDb, academic_year) {
   try {
     const sixMonthsAgo = new Date();
     sixMonthsAgo.setMonth(sixMonthsAgo.getMonth() - 6);
 
+    // Build filter for academic year
+    const filter = {
+      payment_date: { $gte: sixMonthsAgo.toISOString() },
+      paid: true
+    };
+    if (academic_year) {
+      filter.academic_year = academic_year;
+    }
+
     const fees = await schoolDb.collection('fees')
-      .find({
-        payment_date: { $gte: sixMonthsAgo.toISOString() },
-        paid: true
-      }, {
+      .find(filter, {
         projection: {
           _id: 0,
           amount: 1,
-          payment_date: 1
+          payment_date: 1,
+          academic_year: 1
         }
       })
       .toArray();
@@ -385,7 +423,7 @@ async function getMonthlyTrends(schoolDb) {
 }
 
 // ✅ FIXED: Class-wise fees function
-async function getClassWiseFees(schoolDb) {
+async function getClassWiseFees(schoolDb, academic_year) {
   try {
     console.log('Fetching class-wise fees...');
     
@@ -415,8 +453,14 @@ async function getClassWiseFees(schoolDb) {
 
           // Only query fees if there are students in this class
           if (studentIds.length > 0) {
+            // Build filter for academic year
+            const feeFilter = { student_id: { $in: studentIds } };
+            if (academic_year) {
+              feeFilter.academic_year = academic_year;
+            }
+            
             const fees = await schoolDb.collection('fees')
-              .find({ student_id: { $in: studentIds } })
+              .find(feeFilter)
               .toArray();
 
             totalCollected = fees
@@ -496,6 +540,41 @@ async function getSchoolOverview(schoolDb) {
       total_teachers: 0,
       total_fee_collected: 0,
       total_fee_pending: 0
+    };
+  }
+}
+
+// ✅ Salary statistics helper function
+async function getSalaryStatistics(schoolDb, academic_year) {
+  try {
+    // Get all salaries (we can filter by academic year if needed in the future)
+    const salaries = await schoolDb.collection('salaries')
+      .find({}, { projection: { _id: 0, net_amount: 1, status: 1 } })
+      .toArray();
+
+    let total_paid = 0;
+    let total_pending = 0;
+
+    salaries.forEach(salary => {
+      const amount = salary.net_amount || 0;
+      if (salary.status === 'paid') {
+        total_paid += amount;
+      } else {
+        total_pending += amount;
+      }
+    });
+
+    return {
+      total_paid,
+      total_pending,
+      total_amount: total_paid + total_pending
+    };
+  } catch (error) {
+    console.error('Error fetching salary statistics:', error);
+    return {
+      total_paid: 0,
+      total_pending: 0,
+      total_amount: 0
     };
   }
 }

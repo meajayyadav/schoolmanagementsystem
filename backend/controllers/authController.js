@@ -72,15 +72,29 @@ async function loginUser(req, res) {
     const { email, password } = req.body;
     const centralDb = getCentralDb();
 
+    // Support both email and mobile number as username
+    const username = email; // The 'email' field can contain either email or mobile number
+    
     let db = centralDb;
-    let user = await db.collection('users').findOne({ email });
+    // Try to find user by email first, then by mobile_number
+    let user = await db.collection('users').findOne({ 
+      $or: [
+        { email: username },
+        { mobile_number: username }
+      ]
+    });
 
     // Try to find user in school DBs if not found in central
     if (!user) {
       const schools = await centralDb.collection('schools').find({}).toArray();
       for (const school of schools) {
         const schoolDb = getSchoolDbByName(school.db_name);
-        const found = await schoolDb.collection('users').findOne({ email });
+        const found = await schoolDb.collection('users').findOne({ 
+          $or: [
+            { email: username },
+            { mobile_number: username }
+          ]
+        });
         if (found) {
           user = found;
           db = schoolDb;

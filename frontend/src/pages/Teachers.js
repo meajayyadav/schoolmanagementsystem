@@ -619,6 +619,7 @@ import { Switch } from '@/components/ui/switch';
 import { MultiSelect } from '@/components/ui/multiselect';
 import { Badge } from '@/components/ui/badge';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
+import { useConfirm } from '@/hooks/use-confirm';
 
 // ✅ Enhanced Pagination Component
 const PaginationControl = ({ pagination, filters, setFilters }) => {
@@ -801,6 +802,7 @@ const TeacherCard = ({ teacher, onEdit, onDelete, onToggleStatus }) => {
 // ----------------------
 export default function Teachers() {
   const { user } = useAuth();
+  const { confirm, ConfirmDialog } = useConfirm();
   const [teachers, setTeachers] = useState([]);
   const [subjects, setSubjects] = useState([]);
   const [schools, setSchools] = useState([]);
@@ -915,15 +917,20 @@ export default function Teachers() {
       } else {
         payload.school_id = user.school_id;
       }
-
+  
+      let response;
       if (editing) {
-        await teachersApi.update(editing.id, payload);
+        response = await teachersApi.update(editing.id, payload);
         toast.success('Teacher updated successfully');
       } else {
-        await teachersApi.create(payload);
-        toast.success('Teacher added successfully');
+        response = await teachersApi.create(payload);
+        if (response.data.emailSent) {
+          toast.success('Teacher added successfully! Temporary password sent via email.');
+        } else {
+          toast.success('Teacher added successfully! However, failed to send email with temporary password.');
+        }
       }
-
+  
       setShowDialog(false);
       setEditing(null);
       resetForm();
@@ -934,7 +941,11 @@ export default function Teachers() {
   };
 
   const handleDelete = async (id) => {
-    if (!confirm('Are you sure you want to delete this teacher?')) return;
+    const confirmed = await confirm({
+      title: 'Delete Teacher',
+      description: 'Are you sure you want to delete this teacher? This action cannot be undone.',
+    });
+    if (!confirmed) return;
     try {
       await teachersApi.delete(id);
       toast.success('Teacher deleted successfully');
@@ -1569,6 +1580,7 @@ export default function Teachers() {
           </form>
         </DialogContent>
       </Dialog>
+      <ConfirmDialog />
     </Layout>
   );
 }
