@@ -4,7 +4,7 @@ import { useNavigate } from 'react-router-dom';
 import { 
   School, Users, BookOpen, Calendar, DollarSign, Bell, Award, 
   Eye, EyeOff, Check, ArrowRight, Play, Star, Shield, Zap,
-  Youtube
+  Youtube, Loader2
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -22,6 +22,7 @@ export default function Landing() {
   const [name, setName] = useState('');
   const [showPassword, setShowPassword] = useState(false);
   const [activeFeature, setActiveFeature] = useState(0);
+  const [isSigningIn, setIsSigningIn] = useState(false); // New state for sign-in loading
 
   if (user) {
     navigate('/dashboard');
@@ -30,7 +31,9 @@ export default function Landing() {
 
   const handleLogin = async (e) => {
     e.preventDefault();
+    setIsSigningIn(true); // Start loading
     const success = await login(email, password);
+    setIsSigningIn(false); // Stop loading regardless of outcome
     if (success) {
       navigate('/dashboard');
     }
@@ -399,8 +402,8 @@ export default function Landing() {
                     onChange={(e) => setEmail(e.target.value)}
                     className="h-12 rounded-lg"
                     required
+                    disabled={isSigningIn} // Disable input during sign-in
                   />
-                  {/* <p className="text-xs text-gray-500">You can login using your email address or mobile number</p> */}
                 </div>
                 
                 <div className="space-y-2">
@@ -412,19 +415,32 @@ export default function Landing() {
                       onChange={(e) => setPassword(e.target.value)}
                       className="h-12 rounded-lg pr-12"
                       required
+                      disabled={isSigningIn} // Disable input during sign-in
                     />
                     <button
                       type="button"
                       onClick={() => setShowPassword(!showPassword)}
-                      className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-500 hover:text-gray-700 transition-colors"
+                      className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-500 hover:text-gray-700 transition-colors disabled:opacity-50"
+                      disabled={isSigningIn} // Disable button during sign-in
                     >
                       {showPassword ? <EyeOff size={18} /> : <Eye size={18} />}
                     </button>
                   </div>
                 </div>
                 
-                <Button type="submit" className="w-full h-12 rounded-lg bg-blue-600 hover:bg-blue-700">
-                  Sign In
+                <Button 
+                  type="submit" 
+                  className="w-full h-12 rounded-lg bg-blue-600 hover:bg-blue-700"
+                  disabled={isSigningIn} // Disable button during sign-in
+                >
+                  {isSigningIn ? (
+                    <>
+                      <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                      Signing in...
+                    </>
+                  ) : (
+                    'Sign In'
+                  )}
                 </Button>
                 
                 <div className="relative my-6">
@@ -441,7 +457,7 @@ export default function Landing() {
                   variant="outline"
                   className="w-full h-12 rounded-lg border-gray-300"
                   onClick={() => googleLogin()}
-                  disabled
+                  disabled={isSigningIn} // Disable during sign-in
                 >
                   <svg className="mr-2 h-4 w-4" viewBox="0 0 24 24">
                     <path

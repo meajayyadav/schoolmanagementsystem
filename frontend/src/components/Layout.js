@@ -3,11 +3,21 @@ import { useAuth } from '@/contexts/AuthContext';
 import {
   School, Home, Users, GraduationCap, BookOpen, Calendar,
   ClipboardCheck, TrendingUp, Clock, DollarSign, Bell, IndianRupeeIcon,
-  Library, FileText, Award, Briefcase, User, LogOut, Menu, X
+  Library, FileText, Award, Briefcase, User, LogOut, Menu, X,
+  AlertTriangle
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { useState, useEffect, useRef } from 'react';
 import { announcementsApi, schoolsApi, menusApi } from '@/api';
+import { getTenantFromDomain } from '@/utils/tenant';
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from '@/components/ui/dialog';
 
 // Icon mapping for dynamic icons
 const ICON_MAP = {
@@ -58,9 +68,11 @@ export default function Layout({ children }) {
   const [loadingNotifs, setLoadingNotifs] = useState(false);
   const [schoolName, setSchoolName] = useState('');
   const [schoolTagline, setSchoolTagline] = useState('');
+  const [schoolLogo, setSchoolLogo] = useState(null);
   const [dynamicMenus, setDynamicMenus] = useState([]);
   const [loadingMenus, setLoadingMenus] = useState(true);
   const [menuError, setMenuError] = useState(null);
+  const [showLogoutConfirm, setShowLogoutConfirm] = useState(false); // New state for logout confirmation
   
   const dropdownRef = useRef(null);
 
@@ -166,7 +178,7 @@ export default function Layout({ children }) {
     { name: 'ViewReports', path: '/viewReports', icon: 'Briefcase', roles: ['super_admin','school_admin'] }
   ];
 
-  // Load school data based on user's school_id
+  // Load school data based on user's school_id or subdomain
   useEffect(() => {
     const fetchSchoolData = async () => {
       try {
@@ -177,12 +189,28 @@ export default function Layout({ children }) {
           return;
         }
 
-        // For users with school_id - fetch their specific school
+        // Try to get school from subdomain first (more reliable for multi-tenant)
+        const tenant = getTenantFromDomain();
+        if (tenant) {
+          try {
+            const res = await schoolsApi.getBySubdomain(tenant);
+            const schoolData = res.data;
+            setSchoolName(schoolData?.name || 'My School');
+            setSchoolTagline(schoolData?.tagline || 'Quality Education');
+            setSchoolLogo(schoolData?.logo || null);
+            return;
+          } catch (subdomainError) {
+            console.warn('Failed to fetch school by subdomain, trying school_id...', subdomainError);
+          }
+        }
+
+        // Fallback: For users with school_id - fetch their specific school
         if (user?.school_id) {
           const res = await schoolsApi.getOne(user.school_id);
           const schoolData = res.data;
           setSchoolName(schoolData?.name || 'My School');
           setSchoolTagline(schoolData?.tagline || 'Quality Education');
+          setSchoolLogo(schoolData?.logo || null);
         } 
         // For users without school_id but with school context
         else if (user?.role === 'school_admin') {
@@ -345,6 +373,20 @@ export default function Layout({ children }) {
   // Sort menus by order
   const sortedMenus = [...dynamicMenus].sort((a, b) => (a.order || 0) - (b.order || 0));
 
+  // Handle logout confirmation
+  const handleLogoutClick = () => {
+    setShowLogoutConfirm(true);
+  };
+
+  const handleConfirmLogout = () => {
+    setShowLogoutConfirm(false);
+    logout(); // Call the original logout function
+  };
+
+  const handleCancelLogout = () => {
+    setShowLogoutConfirm(false);
+  };
+
   return (
     <div className="flex h-screen bg-gray-50">
       {/* Sidebar */}
@@ -425,7 +467,7 @@ export default function Layout({ children }) {
             <span>Profile</span>
           </Link>
           <button
-            onClick={logout}
+            onClick={handleLogoutClick} // Updated to show confirmation dialog
             className="sidebar-link flex items-center gap-3 px-6 py-2.5 text-sm w-full text-gray-300 hover:bg-red-700 hover:text-white"
           >
             <LogOut size={20} />
@@ -452,9 +494,27 @@ export default function Layout({ children }) {
             {/* School Logo */}
             <div className="hidden lg:flex items-center gap-3">
               <div className="relative">
-                <div className="w-10 h-10 bg-gradient-to-br from-blue-500 to-purple-600 rounded-xl flex items-center justify-center shadow-lg">
-                  <School className="text-white" size={20} />
-                </div>
+                {schoolLogo ? (
+                  <div className="w-10 h-10 rounded-xl overflow-hidden shadow-lg bg-white p-1">
+                    <img 
+                      src={`${process.env.REACT_APP_BACKEND_URL}${schoolLogo}`}
+                      alt={schoolName || 'School Logo'}
+                      className="w-full h-full object-contain"
+                      onError={(e) => {
+                        // Fallback to icon if image fails to load
+                        e.target.style.display = 'none';
+                        e.target.nextSibling.style.display = 'flex';
+                      }}
+                    />
+                    <div className="w-10 h-10 bg-gradient-to-br from-blue-500 to-purple-600 rounded-xl items-center justify-center shadow-lg hidden">
+                      <School className="text-white" size={20} />
+                    </div>
+                  </div>
+                ) : (
+                  <div className="w-10 h-10 bg-gradient-to-br from-blue-500 to-purple-600 rounded-xl flex items-center justify-center shadow-lg">
+                    <School className="text-white" size={20} />
+                  </div>
+                )}
                 <div className="absolute -bottom-1 -right-1 w-4 h-4 bg-green-400 rounded-full border-2 border-white"></div>
               </div>
               
@@ -520,7 +580,7 @@ export default function Layout({ children }) {
 
             <Button
               size="sm"
-              onClick={logout}
+              onClick={handleLogoutClick} // Updated to show confirmation dialog
               className="hidden lg:flex bg-gradient-to-r from-blue-600 to-blue-700 text-white hover:from-blue-700 hover:to-blue-800 shadow-md transition-all duration-200"
             >
               <LogOut size={16} className="mr-2" />
@@ -623,6 +683,48 @@ export default function Layout({ children }) {
 
         <main className="flex-1 overflow-y-auto p-6">{children}</main>
       </div>
+
+      {/* Logout Confirmation Dialog */}
+      <Dialog open={showLogoutConfirm} onOpenChange={setShowLogoutConfirm}>
+        <DialogContent className="sm:max-w-md border-0 shadow-2xl">
+          <DialogHeader>
+            <div className="flex justify-center mb-4">
+              <div className="bg-gradient-to-br from-orange-500 to-red-500 p-3 rounded-full">
+                <AlertTriangle className="text-white" size={32} />
+              </div>
+            </div>
+            <DialogTitle className="text-2xl font-bold text-center text-gray-900">
+              Confirm Logout
+            </DialogTitle>
+            <DialogDescription className="text-center text-gray-600 mt-2">
+              Are you sure you want to logout from your account?
+              <br />
+              <span className="text-sm text-gray-500 mt-1 block">
+                You'll need to sign in again to access your dashboard.
+              </span>
+            </DialogDescription>
+          </DialogHeader>
+
+          <DialogFooter className="flex flex-col sm:flex-row gap-3 mt-6">
+            <Button
+              type="button"
+              variant="outline"
+              onClick={handleCancelLogout}
+              className="flex-1 h-12 rounded-lg border-gray-300 hover:bg-gray-50 text-gray-700"
+            >
+              Cancel
+            </Button>
+            <Button
+              type="button"
+              onClick={handleConfirmLogout}
+              className="flex-1 h-12 rounded-lg bg-gradient-to-r from-red-600 to-orange-600 hover:from-red-700 hover:to-orange-700 text-white shadow-md"
+            >
+              <LogOut size={18} className="mr-2" />
+              Yes, Logout
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }

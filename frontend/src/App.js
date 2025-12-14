@@ -1,9 +1,11 @@
+// src/App.js
 import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom';
 import { Toaster } from '@/components/ui/sonner';
 import '@/App.css';
 import { AuthProvider, useAuth } from '@/contexts/AuthContext';
 import Landing from '@/pages/Landing';
-import Admission from '@/pages/Admission'
+import Login from '@/pages/Login';
+import Admission from '@/pages/Admission';
 import Dashboard from '@/pages/Dashboard';
 import Schools from '@/pages/Schools';
 import Students from '@/pages/Students';
@@ -27,14 +29,27 @@ import UserManagement from './pages/userManagement';
 import Subject from './pages/Subject';
 import SystemCode from './pages/systemCode';
 import MenuManagement from './pages/menuManagement';
-import { useEffect, useState } from 'react';
+import { useEffect, useMemo, useState, createContext, useContext } from 'react';
 import { menusApi } from './api';
 import ViewReports from './pages/ViewReports';
 import PromoteStudents from './pages/PromoteStudents';
 import Salary from './pages/Salary';
 import PendingFees from './pages/PendingFees';
+import { getTenantFromDomain, isSubdomain } from '@/utils/tenant';
 
-// Route permission mapping as fallback (optional)
+/**
+ * TenantContext
+ * Exposes current tenant identifier (string) or null for local.
+ * Other components can consume this to show branding, etc.
+ */
+const TenantContext = createContext(null);
+export function useTenant() {
+  return useContext(TenantContext);
+}
+
+/**
+ * Route permission mapping as fallback (optional)
+ */
 const FALLBACK_PERMISSIONS = {
   '/dashboard': ['super_admin', 'school_admin', 'teacher', 'student', 'parent'],
   '/admission': ['super_admin', 'school_admin'],
@@ -65,46 +80,58 @@ const FALLBACK_PERMISSIONS = {
   '/pending-fees': ['super_admin','school_admin']
 };
 
-// Custom hook to manage user menus
-function useUserMenus() {
+/**
+ * Custom hook to manage user menus (tenant-aware)
+ * - reloads menus whenever user OR tenant changes
+ */
+function useUserMenusWithTenant(tenant) {
   const { user } = useAuth();
   const [userMenus, setUserMenus] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
 
   useEffect(() => {
+    let cancelled = false;
+
     const loadUserMenus = async () => {
-      if (user) {
-        try {
-          setLoading(true);
-          setError(null);
-          const response = await menusApi.getMyMenu();
-          setUserMenus(response.data.data || []);
-        } catch (err) {
-          console.error('Failed to load user menus:', err);
-          setError('Failed to load navigation permissions');
-          setUserMenus([]);
-        } finally {
-          setLoading(false);
-        }
-      } else {
-        // Clear menus when user logs out
+      // If user not authenticated — clear menus
+      if (!user) {
         setUserMenus([]);
         setLoading(false);
         setError(null);
+        return;
+      }
+
+      setLoading(true);
+      setError(null);
+      try {
+        // menusApi will include tenant header automatically via axios interceptor
+        const response = await menusApi.getMyMenu();
+        if (!cancelled) {
+          setUserMenus(response.data?.data || []);
+        }
+      } catch (err) {
+        console.error('Failed to load user menus:', err);
+        if (!cancelled) {
+          setError('Failed to load navigation permissions');
+          setUserMenus([]);
+        }
+      } finally {
+        if (!cancelled) setLoading(false);
       }
     };
 
     loadUserMenus();
-  }, [user]);
+
+    return () => { cancelled = true; };
+  }, [user, tenant]); // reload when tenant changes
 
   return { userMenus, loading, error };
 }
 
 function PrivateRoute({ children }) {
   const { user, loading: authLoading } = useAuth();
-  
-  // Only check auth loading, not menu loading
+
   if (authLoading) {
     return (
       <div className="min-h-screen flex items-center justify-center">
@@ -112,20 +139,19 @@ function PrivateRoute({ children }) {
       </div>
     );
   }
-  
-  // Redirect to landing page if not authenticated
+
   if (!user) {
     return <Navigate to="/" replace />;
   }
-  
+
   return children;
 }
 
 function ProtectedRoute({ children, path }) {
   const { user } = useAuth();
-  const { userMenus, loading } = useUserMenus();
+  const tenant = useTenant();
+  const { userMenus, loading } = useUserMenusWithTenant(tenant);
 
-  // Don't check menu permissions if user is not authenticated
   if (!user) {
     return <Navigate to="/" replace />;
   }
@@ -140,10 +166,8 @@ function ProtectedRoute({ children, path }) {
 
   // Check if user has access to this route via menu permissions
   const hasMenuAccess = userMenus.some(menu => menu.path === path);
-  
   // Fallback: check static permissions if no menu access
   const hasFallbackAccess = FALLBACK_PERMISSIONS[path]?.includes(user.role);
-
   const hasAccess = hasMenuAccess || hasFallbackAccess;
 
   if (!hasAccess) {
@@ -172,10 +196,13 @@ function ProtectedRoute({ children, path }) {
   return children;
 }
 
-// Optimized component that only loads menus once
 function AppRoutes() {
+  const tenant = useTenant();
   const { user } = useAuth();
-  const { userMenus, loading } = useUserMenus();
+  const { userMenus, loading } = useUserMenusWithTenant(tenant);
+  
+  // Check if we're on a school subdomain
+  const isSchoolSubdomain = isSubdomain();
 
   // Show loading spinner only on initial load when user is authenticated
   if (user && loading) {
@@ -188,8 +215,11 @@ function AppRoutes() {
 
   return (
     <Routes>
-      {/* Public route */}
-      <Route path="/" element={<Landing />} />
+      {/* Public routes */}
+      {/* For school subdomains, show Login page directly instead of Landing */}
+      <Route path="/" element={isSchoolSubdomain ? <Login /> : <Landing />} />
+      {/* Login route available for both subdomain and main domain */}
+      <Route path="/login" element={<Login />} />
       
       {/* Protected routes */}
       <Route path="/dashboard" element={
@@ -365,12 +395,17 @@ function AppRoutes() {
 }
 
 function App() {
+  // Determine tenant once per app load (subdomain/custom domain/local)
+  const tenant = useMemo(() => getTenantFromDomain(), []);
+
   return (
     <AuthProvider>
-      <BrowserRouter>
-        <AppRoutes />
-        <Toaster position="top-right" />
-      </BrowserRouter>
+      <TenantContext.Provider value={tenant}>
+        <BrowserRouter>
+          <AppRoutes />
+          <Toaster position="top-right" />
+        </BrowserRouter>
+      </TenantContext.Provider>
     </AuthProvider>
   );
 }

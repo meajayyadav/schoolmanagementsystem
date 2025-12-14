@@ -5,7 +5,18 @@ function nowISO() {
   return new Date().toISOString();
 }
 
-function makeUser({ email, name, role, school_id = null, password_hash = null, picture = null }) {
+/**
+ * makeUser
+ * - keep same fields you used elsewhere
+ */
+function makeUser({
+  email,
+  name,
+  role = 'school_admin',
+  school_id = null,
+  password_hash = null,
+  picture = null,
+}) {
   return {
     id: uuidv4(),
     email,
@@ -14,7 +25,8 @@ function makeUser({ email, name, role, school_id = null, password_hash = null, p
     school_id,
     password_hash,
     picture,
-    created_at: nowISO()
+    created_at: nowISO(),
+    updated_at: nowISO(),
   };
 }
 
@@ -23,21 +35,41 @@ function makeSession({ user_id, session_token, expires_at }) {
     user_id,
     session_token,
     expires_at,
-    created_at: nowISO()
+    created_at: nowISO(),
   };
 }
 
-function makeSchool({ name, code, admin_email, admin_name, db_name, address = null, phone = null }) {
+/**
+ * makeSchool
+ * - adds subdomain (derived from code) and optional custom_domain
+ * - keeps created_at / updated_at
+ */
+function makeSchool({
+  name,
+  code,
+  admin_email,
+  admin_name,
+  db_name,
+  address = null,
+  phone = null,
+  subdomain = null,
+  custom_domain = null,
+}) {
+  const normalizedCode = String(code).trim();
+  const sd = subdomain || normalizedCode.toLowerCase();
   return {
     id: uuidv4(),
     name,
-    code,
+    code: normalizedCode,
+    subdomain: sd,
+    custom_domain: custom_domain || null,
     admin_email,
     admin_name,
     db_name,
     address,
     phone,
-    created_at: nowISO()
+    created_at: nowISO(),
+    updated_at: nowISO(),
   };
 }
 
