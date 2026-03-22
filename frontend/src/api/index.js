@@ -1,47 +1,16 @@
-import axios from "axios";
-import { getTenantFromDomain } from "@/utils/tenant";
+import axios from 'axios';
 
 const API = `${process.env.REACT_APP_BACKEND_URL}/api`;
 
 const api = axios.create({
   baseURL: API,
-  withCredentials: true,
+  withCredentials: true
 });
 
-/**
- * Automatically attach X-Tenant header for all requests
- * Except localhost (since local dev doesn't use domains)
- */
-api.interceptors.request.use(
-  (config) => {
-    const tenant = getTenantFromDomain();
-
-    // Add tenant only when present (custom domain or subdomain)
-    if (tenant) {
-      config.headers["x-tenant"] = tenant;
-    }
-
-    return config;
-  },
-  (error) => Promise.reject(error)
-);
-
-/**
- * OPTIONALLY: Global error handler
- */
-// api.interceptors.response.use(
-//   (response) => response,
-//   (error) => {
-//     console.error("API Error:", error);
-//     return Promise.reject(error);
-//   }
-// );
-
 export const schoolsApi = {
-  getAll: () => api.get("/schools"),
+  getAll: () => api.get('/schools'),
   getOne: (id) => api.get(`/schools/${id}`),
-  getBySubdomain: (subdomain) => api.get(`/schools/by-subdomain/${subdomain}`),
-  create: (data) => api.post("/schools", data),
+  create: (data) => api.post('/schools', data),
   update: (id, data) => api.put(`/schools/${id}`, data),
   delete: (id) => api.delete(`/schools/${id}`),
 };

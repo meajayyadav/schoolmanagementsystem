@@ -5,13 +5,10 @@ const dotenv = require('dotenv');
 dotenv.config();
 
 const JWT_SECRET = process.env.JWT_SECRET || 'your-secret-key-change-in-production';
-// Keep hours-based expiration as you had
-const JWT_EXPIRATION_HOURS = parseInt(process.env.JWT_EXPIRATION_HOURS || '24', 10);
-const SALT_ROUNDS = parseInt(process.env.SALT_ROUNDS || '10', 10);
+const JWT_EXPIRATION_DAYS = parseInt(process.env.JWT_EXPIRATION_DAYS || '7', 10);
 
 function hashPassword(password) {
-  // synchronous helper (consistent with your earlier code)
-  const salt = bcrypt.genSaltSync(SALT_ROUNDS);
+  const salt = bcrypt.genSaltSync(10);
   return bcrypt.hashSync(password, salt);
 }
 
@@ -21,7 +18,8 @@ function verifyPassword(password, hashed) {
 
 function createJwtToken(payloadObj) {
   const payload = { ...payloadObj };
-  const expiresIn = `${JWT_EXPIRATION_HOURS}h`; // e.g., "24h"
+  // set expiration in seconds
+  const expiresIn = `${JWT_EXPIRATION_DAYS}d`;
   return jwt.sign(payload, JWT_SECRET, { algorithm: 'HS256', expiresIn });
 }
 
@@ -37,5 +35,5 @@ module.exports = {
   hashPassword,
   verifyPassword,
   createJwtToken,
-  verifyJwtToken,
+  verifyJwtToken
 };

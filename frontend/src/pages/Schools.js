@@ -1,4 +1,3 @@
-// src/pages/Schools.jsx
 import { useEffect, useState } from 'react';
 import Layout from '@/components/Layout';
 import { schoolsApi } from '@/api';
@@ -24,7 +23,6 @@ export default function Schools() {
   const [formData, setFormData] = useState({
     name: '',
     code: '',
-    domain: '', // <-- new
     admin_email: '',
     admin_name: '',
     admin_password: '',
@@ -37,12 +35,10 @@ export default function Schools() {
   }, []);
 
   const loadSchools = async () => {
-    setLoading(true);
     try {
       const response = await schoolsApi.getAll();
-      setSchools(response.data || []);
+      setSchools(response.data);
     } catch (error) {
-      console.error('loadSchools error', error);
       toast.error('Failed to load schools');
     } finally {
       setLoading(false);
@@ -54,22 +50,19 @@ export default function Schools() {
       setIsEditing(true);
       setSelectedSchool(school);
       setFormData({
-        name: school.name || '',
-        code: school.code || '',
-        domain: school.custom_domain || school.domain || '', // handle different backend key names
-        admin_email: school.admin_email || '',
-        admin_name: school.admin_name || '',
+        name: school.name,
+        code: school.code,
+        admin_email: school.admin_email,
+        admin_name: school.admin_name,
         admin_password: '',
         address: school.address || '',
         phone: school.phone || '',
       });
     } else {
       setIsEditing(false);
-      setSelectedSchool(null);
       setFormData({
         name: '',
         code: '',
-        domain: '',
         admin_email: '',
         admin_name: '',
         admin_password: '',
@@ -84,72 +77,50 @@ export default function Schools() {
     e.preventDefault();
     try {
       if (isEditing && selectedSchool) {
-        // Only send fields allowed for update
-        const payload = {
-          name: formData.name,
-          // code is not editable
-          custom_domain: formData.domain || null,
-          admin_email: formData.admin_email,
-          admin_name: formData.admin_name,
-          address: formData.address,
-          phone: formData.phone,
-        };
-        await schoolsApi.update(selectedSchool.id, payload);
+        await schoolsApi.update(selectedSchool.id, formData);
         toast.success('School updated successfully');
       } else {
-        // Create payload
-        const payload = {
-          name: formData.name,
-          code: formData.code,
-          custom_domain: formData.domain || null,
-          admin_email: formData.admin_email,
-          admin_name: formData.admin_name,
-          admin_password: formData.admin_password,
-          address: formData.address,
-          phone: formData.phone,
-        };
-        await schoolsApi.create(payload);
+        await schoolsApi.create(formData);
         toast.success('School created successfully');
       }
       setShowDialog(false);
       loadSchools();
     } catch (error) {
-      console.error('School save error', error);
-      const message = error?.response?.data?.detail || error?.message || 'Operation failed';
-      toast.error(message);
+      toast.error(error.response?.data?.detail || 'Operation failed');
     }
   };
 
   const handleDelete = async (school) => {
-    const result = await Swal.fire({
-      title: 'Are you sure?',
-      text: `This will permanently delete "${school.name}".`,
-      icon: 'warning',
-      showCancelButton: true,
-      confirmButtonColor: '#d33',
-      cancelButtonColor: '#6b7280',
-      confirmButtonText: 'Yes, delete it!',
-      cancelButtonText: 'Cancel',
-      reverseButtons: true,
+  const result = await Swal.fire({
+    title: 'Are you sure?',
+    text: `This will permanently delete "${school.name}".`,
+    icon: 'warning',
+    showCancelButton: true,
+    confirmButtonColor: '#d33',
+    cancelButtonColor: '#6b7280',
+    confirmButtonText: 'Yes, delete it!',
+    cancelButtonText: 'Cancel',
+    reverseButtons: true,
+  });
+
+  if (!result.isConfirmed) return;
+
+  try {
+    await schoolsApi.delete(school.id);
+    await Swal.fire({
+      icon: 'success',
+      title: 'Deleted!',
+      text: 'School has been deleted successfully.',
+      timer: 1500,
+      showConfirmButton: false,
     });
+    loadSchools();
+  } catch (error) {
+    console.error('Delete error:', error);
+    toast.error('Failed to delete school');
+  }
+};
 
-    if (!result.isConfirmed) return;
-
-    try {
-      await schoolsApi.delete(school.id);
-      await Swal.fire({
-        icon: 'success',
-        title: 'Deleted!',
-        text: 'School has been deleted successfully.',
-        timer: 1500,
-        showConfirmButton: false,
-      });
-      loadSchools();
-    } catch (error) {
-      console.error('Delete error:', error);
-      toast.error('Failed to delete school');
-    }
-  };
 
   return (
     <Layout>
@@ -199,10 +170,7 @@ export default function Schools() {
                   </div>
                   <div className="flex-1">
                     <h3 className="text-xl font-semibold text-gray-900 mb-1">{school.name}</h3>
-                    <p className="text-sm text-gray-600 mb-1">Code: {school.code}</p>
-                    { (school.custom_domain || school.domain) && (
-                      <p className="text-sm text-gray-600 mb-1">Domain: {school.custom_domain || school.domain}</p>
-                    )}
+                    <p className="text-sm text-gray-600 mb-2">Code: {school.code}</p>
                     <p className="text-sm text-gray-600">Admin: {school.admin_name}</p>
                     <p className="text-sm text-gray-600">{school.admin_email}</p>
                     {school.phone && <p className="text-sm text-gray-600 mt-2">{school.phone}</p>}
@@ -232,8 +200,6 @@ export default function Schools() {
             <Input placeholder="School Code" value={formData.code}
               onChange={(e) => setFormData({ ...formData, code: e.target.value })}
               required disabled={isEditing} />
-            <Input placeholder="Domain (example: www.dps.in or dps.in)" value={formData.domain}
-              onChange={(e) => setFormData({ ...formData, domain: e.target.value })} />
             <Input placeholder="Admin Name" value={formData.admin_name}
               onChange={(e) => setFormData({ ...formData, admin_name: e.target.value })} required />
             <Input type="email" placeholder="Admin Email" value={formData.admin_email}
